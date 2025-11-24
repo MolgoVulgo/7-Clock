@@ -104,6 +104,17 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
         <label>Digit 3<input type="color" id="per_digit_2"></label>
         <label>Digit 4<input type="color" id="per_digit_3"></label>
       </div>
+      <fieldset>
+        <legend>Réduction nocturne</legend>
+        <label class="inline"><input type="checkbox" id="quiet_enabled"> Activer</label>
+        <div class="grid">
+          <label>Début - heure<input type="number" id="quiet_start_hour" min="0" max="23"></label>
+          <label>Début - minute<input type="number" id="quiet_start_minute" min="0" max="59"></label>
+          <label>Fin - heure<input type="number" id="quiet_end_hour" min="0" max="23"></label>
+          <label>Fin - minute<input type="number" id="quiet_end_minute" min="0" max="59"></label>
+        </div>
+        <label>Luminosité réduite (0-255)<input type="number" id="quiet_dim_brightness" min="0" max="255"></label>
+      </fieldset>
       <button type="submit">Appliquer</button>
     </form>
   </section>
@@ -186,11 +197,18 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
       $("general_color").value = data.general_color || "#ffffff";
       $("per_digit_enabled").checked = !!data.per_digit_color?.enabled;
       const values = data.per_digit_color?.values || [];
-    for (let i = 0; i < 4; i++) {
-      const color = values[i] || data.general_color || "#ffffff";
-      $("per_digit_" + i).value = color;
+      for (let i = 0; i < 4; i++) {
+        const color = values[i] || data.general_color || "#ffffff";
+        $("per_digit_" + i).value = color;
+      }
+      const quiet = data.quiet_hours || {};
+      $("quiet_enabled").checked = quiet.enabled || false;
+      $("quiet_start_hour").value = (quiet.start_hour !== undefined) ? quiet.start_hour : 23;
+      $("quiet_start_minute").value = (quiet.start_minute !== undefined) ? quiet.start_minute : 0;
+      $("quiet_end_hour").value = (quiet.end_hour !== undefined) ? quiet.end_hour : 7;
+      $("quiet_end_minute").value = (quiet.end_minute !== undefined) ? quiet.end_minute : 0;
+      $("quiet_dim_brightness").value = (quiet.dim_brightness !== undefined) ? quiet.dim_brightness : 0;
     }
-  }
 
     async function loadDots() {
       const data = await fetchJson("/api/dots");
@@ -253,6 +271,14 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
           per_digit_color: {
             enabled: $("per_digit_enabled").checked,
             values: perDigitValues
+          },
+          quiet_hours: {
+            enabled: $("quiet_enabled").checked,
+            start_hour: Number($("quiet_start_hour").value),
+            start_minute: Number($("quiet_start_minute").value),
+            end_hour: Number($("quiet_end_hour").value),
+            end_minute: Number($("quiet_end_minute").value),
+            dim_brightness: Number($("quiet_dim_brightness").value)
           }
         });
         showToast("Affichage mis à jour");
@@ -339,6 +365,14 @@ struct DisplaySettings {
   Color generalColor{255, 85, 0};
   bool perDigitEnabled{false};
   Color perDigitColor[DIGIT_COUNT];
+  struct QuietHoursSettings {
+    bool enabled{false};
+    uint8_t startHour{23};
+    uint8_t startMinute{0};
+    uint8_t endHour{7};
+    uint8_t endMinute{0};
+    uint8_t dimBrightness{0};
+  } quietHours;
 };
 
 struct DotsSettings {
@@ -368,6 +402,7 @@ ClockConfig config;
 TimeSettings timeAnchor;
 unsigned long timeReferenceMs = 0;
 unsigned long lastDisplayRefresh = 0;
+uint8_t currentAppliedBrightness = 0;
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 ESP8266WebServer server(80);
@@ -459,8 +494,11 @@ String sanitizeMode(const String &value) {
   return modeToString(modeFromString(value));
 }
 
+TimeSettings computeCurrentTime();
+void applyDisplaySettingsWithTime(const TimeSettings &time);
+
 void applyDisplaySettings() {
-  strip.setBrightness(constrain(config.display.brightness, static_cast<uint8_t>(1), static_cast<uint8_t>(255)));
+  applyDisplaySettingsWithTime(computeCurrentTime());
 }
 
 void loadDefaultConfig() {
@@ -503,6 +541,13 @@ bool saveConfig() {
   for (uint8_t i = 0; i < DIGIT_COUNT; ++i) {
     perDigitValues.add(colorToHex(config.display.perDigitColor[i]));
   }
+  JsonObject quiet = display.createNestedObject("quiet_hours");
+  quiet["enabled"] = config.display.quietHours.enabled;
+  quiet["start_hour"] = config.display.quietHours.startHour;
+  quiet["start_minute"] = config.display.quietHours.startMinute;
+  quiet["end_hour"] = config.display.quietHours.endHour;
+  quiet["end_minute"] = config.display.quietHours.endMinute;
+  quiet["dim_brightness"] = config.display.quietHours.dimBrightness;
 
   JsonObject dots = doc.createNestedObject("dots");
   dots["enabled"] = config.dots.enabled;
@@ -581,6 +626,16 @@ bool loadConfig() {
         }
       }
     }
+    JsonObject quiet = display["quiet_hours"].as<JsonObject>();
+    if (!quiet.isNull()) {
+      config.display.quietHours.enabled = quiet["enabled"].as<bool>();
+      config.display.quietHours.startHour = constrain(quiet["start_hour"].as<int>(), 0, 23);
+      config.display.quietHours.startMinute = constrain(quiet["start_minute"].as<int>(), 0, 59);
+      config.display.quietHours.endHour = constrain(quiet["end_hour"].as<int>(), 0, 23);
+      config.display.quietHours.endMinute = constrain(quiet["end_minute"].as<int>(), 0, 59);
+      config.display.quietHours.dimBrightness =
+          constrain(quiet["dim_brightness"].as<int>(), 0, 255);
+    }
   }
 
   JsonObject dots = doc["dots"].as<JsonObject>();
@@ -627,6 +682,44 @@ TimeSettings computeCurrentTime() {
   uint32_t elapsed = (millis() - timeReferenceMs) / 1000UL;
   uint32_t anchorSeconds = timeToSeconds(timeAnchor);
   return secondsToTime(anchorSeconds + elapsed);
+}
+
+uint16_t minutesFromComponents(uint8_t hour, uint8_t minute) {
+  return static_cast<uint16_t>(hour) * 60 + static_cast<uint16_t>(minute);
+}
+
+bool isInRangeWrap(uint16_t current, uint16_t start, uint16_t end) {
+  if (start == end) {
+    return true;
+  }
+  if (start < end) {
+    return current >= start && current < end;
+  }
+  return current >= start || current < end;
+}
+
+bool isQuietHoursActive(const TimeSettings &time) {
+  if (!config.display.quietHours.enabled) {
+    return false;
+  }
+  const uint16_t start = minutesFromComponents(config.display.quietHours.startHour,
+                                               config.display.quietHours.startMinute);
+  const uint16_t end = minutesFromComponents(config.display.quietHours.endHour,
+                                             config.display.quietHours.endMinute);
+  const uint16_t current = minutesFromComponents(time.hour, time.minute);
+  return isInRangeWrap(current, start, end);
+}
+
+void applyDisplaySettingsWithTime(const TimeSettings &time) {
+  uint8_t desired = constrain(config.display.brightness, static_cast<uint8_t>(1), static_cast<uint8_t>(255));
+  if (config.display.quietHours.enabled && isQuietHoursActive(time)) {
+    desired =
+        constrain(config.display.quietHours.dimBrightness, static_cast<uint8_t>(0), static_cast<uint8_t>(255));
+  }
+  if (desired != currentAppliedBrightness) {
+    strip.setBrightness(desired);
+    currentAppliedBrightness = desired;
+  }
 }
 
 Color resolveDigitColor(uint8_t index) {
@@ -679,8 +772,7 @@ void renderDots(OperatingMode mode) {
   strip.setPixelColor(DOT_RIGHT_INDEX, rightColor);
 }
 
-void renderClock() {
-  TimeSettings now = computeCurrentTime();
+void renderClock(const TimeSettings &now) {
   const uint8_t hourTens = now.hour / 10;
   const uint8_t hourUnits = now.hour % 10;
   const uint8_t minuteTens = now.minute / 10;
@@ -700,9 +792,9 @@ void renderSolidColor(const Color &color) {
   }
 }
 
-void renderCustomMode() {
+void renderCustomMode(const TimeSettings &time) {
   if (config.display.perDigitEnabled) {
-    renderClock();
+    renderClock(time);
   } else {
     renderSolidColor(config.display.generalColor);
   }
@@ -710,6 +802,8 @@ void renderCustomMode() {
 
 void updateDisplay() {
   OperatingMode mode = config.power.powerOn ? modeFromString(config.power.mode) : OperatingMode::Off;
+  TimeSettings now = computeCurrentTime();
+  applyDisplaySettingsWithTime(now);
   if (mode == OperatingMode::Off || !config.power.powerOn) {
     strip.clear();
     strip.show();
@@ -718,19 +812,19 @@ void updateDisplay() {
 
   switch (mode) {
     case OperatingMode::Clock:
-      renderClock();
+      renderClock(now);
       break;
     case OperatingMode::Timer:
-      renderClock();
+      renderClock(now);
       break;
     case OperatingMode::Weather:
       renderSolidColor(config.display.generalColor);
       break;
     case OperatingMode::Custom:
-      renderCustomMode();
+      renderCustomMode(now);
       break;
     case OperatingMode::Alarm:
-      renderClock();
+      renderClock(now);
       break;
     case OperatingMode::Off:
       strip.clear();
@@ -836,6 +930,7 @@ void handlePostTime() {
   if (ntpServerUpdated && WiFi.status() == WL_CONNECTED) {
     syncTimeFromNtp();
   }
+  applyDisplaySettings();
   saveConfig();
   handleGetTime();
 }
@@ -851,6 +946,13 @@ void handleGetDisplay() {
   for (uint8_t i = 0; i < DIGIT_COUNT; ++i) {
     values.add(colorToHex(config.display.perDigitColor[i]));
   }
+  JsonObject quiet = root.createNestedObject("quiet_hours");
+  quiet["enabled"] = config.display.quietHours.enabled;
+  quiet["start_hour"] = config.display.quietHours.startHour;
+  quiet["start_minute"] = config.display.quietHours.startMinute;
+  quiet["end_hour"] = config.display.quietHours.endHour;
+  quiet["end_minute"] = config.display.quietHours.endMinute;
+  quiet["dim_brightness"] = config.display.quietHours.dimBrightness;
   sendJson(doc);
 }
 
@@ -890,6 +992,31 @@ void handlePostDisplay() {
         if (!values.isNull() && i < values.size()) {
           config.display.perDigitColor[i] = hexToColor(values[i].as<String>(), config.display.perDigitColor[i]);
         }
+      }
+    }
+  }
+
+  if (doc.containsKey("quiet_hours")) {
+    JsonObject quiet = doc["quiet_hours"].as<JsonObject>();
+    if (!quiet.isNull()) {
+      if (quiet.containsKey("enabled")) {
+        config.display.quietHours.enabled = quiet["enabled"].as<bool>();
+      }
+      if (quiet.containsKey("start_hour")) {
+        config.display.quietHours.startHour = constrain(quiet["start_hour"].as<int>(), 0, 23);
+      }
+      if (quiet.containsKey("start_minute")) {
+        config.display.quietHours.startMinute = constrain(quiet["start_minute"].as<int>(), 0, 59);
+      }
+      if (quiet.containsKey("end_hour")) {
+        config.display.quietHours.endHour = constrain(quiet["end_hour"].as<int>(), 0, 23);
+      }
+      if (quiet.containsKey("end_minute")) {
+        config.display.quietHours.endMinute = constrain(quiet["end_minute"].as<int>(), 0, 59);
+      }
+      if (quiet.containsKey("dim_brightness")) {
+        config.display.quietHours.dimBrightness =
+            constrain(quiet["dim_brightness"].as<int>(), 0, 255);
       }
     }
   }
@@ -1068,6 +1195,7 @@ void setup() {
   if (syncTimeFromNtp()) {
     saveConfig();
   }
+  applyDisplaySettings();
   setupWebServer();
   Serial.println(F("[Clock] Web server ready"));
   updateDisplay();

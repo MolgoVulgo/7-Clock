@@ -21,6 +21,14 @@
         "#FF5500",
         "#FF5500"
       ]
+    },
+    "quiet_hours": {
+      "enabled": false,
+      "start_hour": 23,
+      "start_minute": 0,
+      "end_hour": 7,
+      "end_minute": 0,
+      "dim_brightness": 0
     }
   },
   "dots": {

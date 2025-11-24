@@ -14,6 +14,7 @@ Projet PlatformIO pour une horloge 4 digits (Wemos D1 mini / ESP-12E) pilotant 3
 3. **Interface LED** : un Adafruit_NeoPixel gère les 30 LED. Chaque digit comporte 7 segments (ordre A–G) et les deux points centraux occupent les indices 14 (gauche) et 15 (droite).
 4. **Modes** : `clock` est pleinement implémenté. Les modes `timer`, `weather`, `custom` et `alarm` réutilisent actuellement l'affichage principal (avec clignotement des points pour `timer`/`alarm`) et servent de base pour des comportements plus évolués. Le mode `off` coupe simplement toutes les LED.
 5. **Synchronisation NTP** : à chaque démarrage (et lors des modifications via l'API), l'horloge synchronise l'heure sur le serveur configuré (`pool.ntp.org` par défaut) et applique un décalage UTC paramétrable.
+6. **Plage nocturne** : une fenêtre horaire optionnelle peut réduire automatiquement la luminosité (jusqu'à éteindre totalement) pour préserver l'obscurité.
 
 ## Configuration (`config.json`)
 Structure principale :
@@ -32,6 +33,14 @@ Structure principale :
     "per_digit_color": {
       "enabled": false,
       "values": ["#FF5500", "#FF5500", "#FF5500", "#FF5500"]
+    },
+    "quiet_hours": {
+      "enabled": false,
+      "start_hour": 23,
+      "start_minute": 0,
+      "end_hour": 7,
+      "end_minute": 0,
+      "dim_brightness": 0
     }
   },
   "dots": {
@@ -46,6 +55,7 @@ Structure principale :
 ```
 - Les couleurs sont exprimées en hexadécimal `#RRGGBB`.
 - `per_digit_color.values` contient 4 entrées (digits 0→3). Activer `enabled` applique ces couleurs à la place de `general_color`.
+- `display.quiet_hours` réduit automatiquement la luminosité (jusqu'à 0) entre `start_*` et `end_*`. Lorsque la plage chevauche minuit, la réduction s'applique sur deux jours.
 - `dots.force_override` applique temporairement `forced_color` sur les deux points (sinon chaque point utilise sa couleur dédiée).
 - `network.ntp_server` définit le serveur NTP utilisé à chaque synchronisation (modifiable via l'API `/api/time` ou en éditant le fichier).
 - `network.utc_offset_minutes` applique un décalage horaire (en minutes, plage -720 ↔ 840) par rapport à UTC lors de la synchronisation.
@@ -76,6 +86,7 @@ curl -X POST http://clock.local/api/power \
 - `brightness` (1-255).
 - `general_color`: couleur par défaut.
 - `per_digit_color`: objet `{ enabled: bool, values: ["#RRGGBB", ...] }` ou directement un tableau pour activer la coloration par digit.
+- `quiet_hours`: `{ enabled, start_hour, start_minute, end_hour, end_minute, dim_brightness }` pour réduire (ou éteindre) l'affichage sur une plage horaire (dim_brightness accepte 0→255).
 
 ### `/api/dots`
 - `enabled`: active les deux points.
