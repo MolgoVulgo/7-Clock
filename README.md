@@ -94,7 +94,7 @@ curl -X POST http://clock.local/api/power \
 - `force_override`, `forced_color`: force simultanément les deux points avec une même couleur.
 
 ### Interface `/`
-- Accéder à `http://<IP>/` ouvre une interface web légère (HTML/JS) qui consomme les endpoints REST pour éditer `config.json` (alimentation, heure/NTP, affichage, points, offset UTC). Aucune dépendance externe, tout est embarqué dans le firmware.
+- Accéder à `http://<IP>/` ouvre une interface web légère (HTML/JS) qui consomme les endpoints REST pour éditer `config.json` (alimentation, heure/NTP, affichage, points, offset UTC). Aucune dépendance externe : la page est embarquée dans `include/index.h` et servie depuis la flash (PROGMEM).
 
 ### `/api/info`
 - Retourne un petit JSON de statut (nom du projet et liste des endpoints exposés).
@@ -115,4 +115,5 @@ curl -X POST http://clock.local/api/power \
 ## Fichiers clés
 - `src/main.cpp` : firmware complet (WiFiManager, LittleFS, API HTTP, gestion NeoPixel).
 - `platformio.ini` : configuration PlatformIO (LittleFS + dépendances).
+- `include/index.h` : ressources HTML/JS du panneau de configuration servi sur `/`.
 - `data/config.json` : configuration par défaut téléversable sur LittleFS.
