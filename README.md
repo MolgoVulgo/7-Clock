@@ -13,6 +13,7 @@ Projet PlatformIO pour une horloge 4 digits (Wemos D1 mini / ESP-12E) pilotant 3
 2. **WiFiManager** lance un portail de configuration « Clock-Setup » s'il ne retrouve pas de réseau connu. Dès que le WiFi est disponible, le serveur HTTP embarqué (port 80) expose l'API.
 3. **Interface LED** : un Adafruit_NeoPixel gère les 30 LED. Chaque digit comporte 7 segments (ordre A–G) et les deux points centraux occupent les indices 14 (gauche) et 15 (droite).
 4. **Modes** : `clock` est pleinement implémenté. Les modes `timer`, `weather`, `custom` et `alarm` réutilisent actuellement l'affichage principal (avec clignotement des points pour `timer`/`alarm`) et servent de base pour des comportements plus évolués. Le mode `off` coupe simplement toutes les LED.
+5. **Synchronisation NTP** : à chaque démarrage (et lors des modifications via l'API), l'horloge synchronise l'heure sur le serveur configuré (`pool.ntp.org` par défaut) et applique un décalage UTC paramétrable.
 
 ## Configuration (`config.json`)
 Structure principale :
@@ -42,13 +43,16 @@ Structure principale :
     "force_right": false,
     "forced_left_color": "#FF0000",
     "forced_right_color": "#FF0000"
-  }
+  },
+  "network": { "ntp_server": "pool.ntp.org", "utc_offset_minutes": 0 }
 }
 ```
 - Les couleurs sont exprimées en hexadécimal `#RRGGBB`.
 - `per_digit_color.values` contient 4 entrées (digits 0→3). Activer `enabled` applique ces couleurs à la place de `general_color`.
 - `single_digit_override` force un digit précis (`index` 0→3) sur une couleur donnée.
 - `dots.force_*` permet de forcer ponctuellement l'un des points avec la couleur associée.
+- `network.ntp_server` définit le serveur NTP utilisé à chaque synchronisation (modifiable via l'API `/api/time` ou en éditant le fichier).
+- `network.utc_offset_minutes` applique un décalage horaire (en minutes, plage -720 ↔ 840) par rapport à UTC lors de la synchronisation.
 
 Le fichier peut être téléversé vers le système de fichiers avec `pio run -t uploadfs`. Pendant l'exécution, toute modification via l'API est persistée immédiatement.
 
@@ -70,7 +74,7 @@ curl -X POST http://clock.local/api/power \
 
 ### `/api/time`
 - Détermine l'heure de départ utilisée par `ModeClock` lorsque aucun autre minuteur n'est actif.
-- Champs : `hour` (0-23), `minute` (0-59), `second` (0-59).
+- Champs : `hour` (0-23), `minute` (0-59), `second` (0-59), `ntp_server` (chaîne), `utc_offset_minutes` (entier entre -720 et 840). Envoyer un `ntp_server` ou un `utc_offset_minutes` déclenche une resynchronisation immédiate tant que le WiFi est connecté.
 
 ### `/api/display`
 - `brightness` (1-255).

@@ -36,5 +36,9 @@
     "force_right": false,
     "forced_left_color": "#FF0000",
     "forced_right_color": "#FF0000"
+  },
+  "network": {
+    "ntp_server": "pool.ntp.org",
+    "utc_offset_minutes": 60
   }
 }

@@ -6,6 +6,7 @@
 #include <ESP8266WiFi.h>
 #include <LittleFS.h>
 #include <WiFiManager.h>
+#include <time.h>
 
 namespace {
 constexpr uint8_t LED_PIN = 12;
@@ -18,6 +19,8 @@ constexpr uint8_t HOUR_TENS_DIGIT_INDEX = 0;
 constexpr char CONFIG_PATH[] = "/config.json";
 constexpr uint32_t DISPLAY_REFRESH_MS = 250;
 constexpr size_t JSON_CAPACITY = 3072;
+constexpr uint8_t NTP_MAX_ATTEMPTS = 40;
+constexpr uint16_t NTP_RETRY_DELAY_MS = 250;
 
 // Segment encoding order: A, B, C, D, E, F, G (bit 0 = segment A)
 constexpr uint8_t DIGIT_SEGMENTS[10] = {
@@ -86,11 +89,17 @@ struct DotsSettings {
   Color forcedRightColor{255, 0, 0};
 };
 
+struct NetworkSettings {
+  String ntpServer{"pool.ntp.org"};
+  int16_t utcOffsetMinutes{0};
+};
+
 struct ClockConfig {
   PowerSettings power;
   TimeSettings time;
   DisplaySettings display;
   DotsSettings dots;
+  NetworkSettings network;
 };
 
 enum class OperatingMode { Clock, Timer, Weather, Custom, Alarm, Off };
@@ -103,6 +112,8 @@ unsigned long lastDisplayRefresh = 0;
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 ESP8266WebServer server(80);
 WiFiManager wifiManager;
+
+bool syncTimeFromNtp();
 
 Color hexToColor(const String &value, const Color &fallback) {
   if (value.length() != 7 || value.charAt(0) != '#') {
@@ -200,6 +211,7 @@ void loadDefaultConfig() {
     config.display.perDigitColor[i] = config.display.generalColor;
   }
   config.dots = DotsSettings();
+  config.network = NetworkSettings();
 }
 
 bool saveConfig() {
@@ -244,6 +256,10 @@ bool saveConfig() {
   dots["force_right"] = config.dots.forceRight;
   dots["forced_left_color"] = colorToHex(config.dots.forcedLeftColor);
   dots["forced_right_color"] = colorToHex(config.dots.forcedRightColor);
+
+  JsonObject network = doc.createNestedObject("network");
+  network["ntp_server"] = config.network.ntpServer;
+  network["utc_offset_minutes"] = config.network.utcOffsetMinutes;
 
   bool ok = serializeJsonPretty(doc, file) > 0;
   file.close();
@@ -328,6 +344,18 @@ bool loadConfig() {
     config.dots.forceRight = dots["force_right"].as<bool>();
     config.dots.forcedLeftColor = hexToColor(dots["forced_left_color"].as<String>(), config.dots.forcedLeftColor);
     config.dots.forcedRightColor = hexToColor(dots["forced_right_color"].as<String>(), config.dots.forcedRightColor);
+  }
+
+  JsonObject network = doc["network"].as<JsonObject>();
+  if (!network.isNull()) {
+    String ntp = network["ntp_server"].as<String>();
+    if (ntp.length() > 0) {
+      config.network.ntpServer = ntp;
+    }
+    if (network.containsKey("utc_offset_minutes")) {
+      config.network.utcOffsetMinutes =
+          constrain(network["utc_offset_minutes"].as<int>(), -720, 840);  // -12h to +14h
+    }
   }
 
   return true;
@@ -521,6 +549,8 @@ void handleGetTime() {
   root["hour"] = config.time.hour;
   root["minute"] = config.time.minute;
   root["second"] = config.time.second;
+  root["ntp_server"] = config.network.ntpServer;
+  root["utc_offset_minutes"] = config.network.utcOffsetMinutes;
   sendJson(doc);
 }
 
@@ -532,6 +562,8 @@ void handlePostTime() {
     return;
   }
 
+  bool ntpServerUpdated = false;
+
   if (doc.containsKey("hour")) {
     config.time.hour = constrain(doc["hour"].as<int>(), 0, 23);
   }
@@ -541,9 +573,24 @@ void handlePostTime() {
   if (doc.containsKey("second")) {
     config.time.second = constrain(doc["second"].as<int>(), 0, 59);
   }
+  if (doc.containsKey("ntp_server")) {
+    String ntp = doc["ntp_server"].as<String>();
+    if (ntp.length() > 0) {
+      config.network.ntpServer = ntp;
+      ntpServerUpdated = true;
+    }
+  }
+  if (doc.containsKey("utc_offset_minutes")) {
+    config.network.utcOffsetMinutes =
+        constrain(doc["utc_offset_minutes"].as<int>(), -720, 840);
+    ntpServerUpdated = true;  // re-sync to apply offset change
+  }
 
   timeAnchor = config.time;
   timeReferenceMs = millis();
+  if (ntpServerUpdated && WiFi.status() == WL_CONNECTED) {
+    syncTimeFromNtp();
+  }
   saveConfig();
   handleGetTime();
 }
@@ -710,6 +757,58 @@ void setupWebServer() {
   server.begin();
 }
 
+bool syncTimeFromNtp() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println(F("[Clock] Cannot sync time: WiFi not connected"));
+    return false;
+  }
+  if (config.network.ntpServer.length() == 0) {
+    Serial.println(F("[Clock] Cannot sync time: NTP server not configured"));
+    return false;
+  }
+
+  Serial.print(F("[Clock] Syncing time via NTP: "));
+  Serial.println(config.network.ntpServer);
+  configTime(0, 0, config.network.ntpServer.c_str());
+
+  for (uint8_t attempt = 0; attempt < NTP_MAX_ATTEMPTS; ++attempt) {
+    time_t now = time(nullptr);
+    if (now > 100000) {
+      const int32_t offsetSeconds = static_cast<int32_t>(config.network.utcOffsetMinutes) * 60;
+      time_t adjusted = now + offsetSeconds;
+      struct tm timeInfo;
+#if defined(ESP8266)
+      if (gmtime_r(&adjusted, &timeInfo) == nullptr) {
+        delay(NTP_RETRY_DELAY_MS);
+        yield();
+        continue;
+      }
+#else
+      struct tm *tmp = gmtime(&adjusted);
+      if (!tmp) {
+        delay(NTP_RETRY_DELAY_MS);
+        yield();
+        continue;
+      }
+      timeInfo = *tmp;
+#endif
+      config.time.hour = constrain(timeInfo.tm_hour, 0, 23);
+      config.time.minute = constrain(timeInfo.tm_min, 0, 59);
+      config.time.second = constrain(timeInfo.tm_sec, 0, 59);
+      timeAnchor = config.time;
+      timeReferenceMs = millis();
+      Serial.printf("[Clock] NTP sync OK: %02u:%02u:%02u\n", config.time.hour, config.time.minute,
+                    config.time.second);
+      return true;
+    }
+    delay(NTP_RETRY_DELAY_MS);
+    yield();
+  }
+
+  Serial.println(F("[Clock] Failed to sync time via NTP"));
+  return false;
+}
+
 void ensureWiFi() {
   WiFi.mode(WIFI_STA);
   wifiManager.setConfigPortalBlocking(true);
@@ -741,6 +840,9 @@ void setup() {
   applyDisplaySettings();
 
   ensureWiFi();
+  if (syncTimeFromNtp()) {
+    saveConfig();
+  }
   setupWebServer();
   Serial.println(F("[Clock] Web server ready"));
   updateDisplay();
