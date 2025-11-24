@@ -1,0 +1,40 @@
+{
+  "power": {
+    "power_on": true,
+    "mode": "clock",
+    "startup_mode": "clock",
+    "exit_special_mode": false
+  },
+  "time": {
+    "hour": 12,
+    "minute": 0,
+    "second": 0
+  },
+  "display": {
+    "brightness": 80,
+    "general_color": "#FF5500",
+    "per_digit_color": {
+      "enabled": false,
+      "values": [
+        "#FF5500",
+        "#FF5500",
+        "#FF5500",
+        "#FF5500"
+      ]
+    },
+    "single_digit_override": {
+      "enabled": false,
+      "index": 0,
+      "color": "#FFFFFF"
+    }
+  },
+  "dots": {
+    "enabled": true,
+    "left_color": "#FFFFFF",
+    "right_color": "#FFFFFF",
+    "force_left": false,
+    "force_right": false,
+    "forced_left_color": "#FF0000",
+    "forced_right_color": "#FF0000"
+  }
+}
