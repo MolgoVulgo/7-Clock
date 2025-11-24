@@ -22,6 +22,271 @@ constexpr size_t JSON_CAPACITY = 3072;
 constexpr uint8_t NTP_MAX_ATTEMPTS = 40;
 constexpr uint16_t NTP_RETRY_DELAY_MS = 250;
 
+static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>ESP8266 Clock</title>
+  <style>
+    :root { font-family: Arial, sans-serif; color: #1f2a37; background: #f2f4f7; }
+    body { margin: 0; padding: 2rem; }
+    h1 { margin-top: 0; }
+    section { background: #fff; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+    fieldset { border: 1px solid #d0d7de; border-radius: 6px; margin-bottom: 1rem; }
+    legend { font-weight: bold; }
+    label { display: flex; flex-direction: column; font-size: 0.9rem; margin-bottom: 0.6rem; }
+    input, select { padding: 0.35rem; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 1rem; }
+    input[type="checkbox"] { width: auto; margin-right: 0.35rem; }
+    .inline { display: flex; align-items: center; gap: 0.4rem; }
+    button { padding: 0.45rem 0.9rem; border: none; border-radius: 4px; background: #2563eb; color: #fff; cursor: pointer; font-size: 1rem; }
+    button.secondary { background: #64748b; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 0.5rem; }
+    #toast { position: fixed; top: 1rem; right: 1rem; padding: 0.75rem 1rem; background: #2563eb; color: #fff; border-radius: 6px; opacity: 0; transition: opacity 0.3s ease; }
+    #toast.visible { opacity: 1; }
+  </style>
+</head>
+<body>
+  <h1>Configuration Horloge ESP8266</h1>
+  <p>Utilisez les formulaires ci-dessous pour modifier les paramètres stockés dans <code>config.json</code>. Les modifications sont appliquées immédiatement.</p>
+
+  <section>
+    <h2>Alimentation & Modes</h2>
+    <form id="powerForm">
+      <label class="inline"><input type="checkbox" id="power_on"> Horloge allumée</label>
+      <label>Mode courant
+        <select id="power_mode">
+          <option value="clock">Clock</option>
+          <option value="timer">Timer</option>
+          <option value="weather">Weather</option>
+          <option value="custom">Custom</option>
+          <option value="alarm">Alarm</option>
+          <option value="off">Off</option>
+        </select>
+      </label>
+      <label>Mode de démarrage
+        <select id="startup_mode">
+          <option value="clock">Clock</option>
+          <option value="timer">Timer</option>
+          <option value="weather">Weather</option>
+          <option value="custom">Custom</option>
+          <option value="alarm">Alarm</option>
+          <option value="off">Off</option>
+        </select>
+      </label>
+      <button type="submit">Enregistrer</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Heure & Réseau</h2>
+    <form id="timeForm">
+      <div class="grid">
+        <label>Heures (0-23)<input type="number" id="time_hour" min="0" max="23"></label>
+        <label>Minutes (0-59)<input type="number" id="time_minute" min="0" max="59"></label>
+        <label>Secondes (0-59)<input type="number" id="time_second" min="0" max="59"></label>
+        <label>Serveur NTP<input type="text" id="ntp_server" placeholder="pool.ntp.org"></label>
+        <label>Décalage UTC (minutes)<input type="number" id="utc_offset" min="-720" max="840" step="1"></label>
+      </div>
+      <button type="submit">Mettre à jour</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Affichage</h2>
+    <form id="displayForm">
+      <label>Luminosité (1-255)<input type="number" id="brightness" min="1" max="255"></label>
+      <label>Couleur générale<input type="color" id="general_color"></label>
+      <label class="inline"><input type="checkbox" id="per_digit_enabled"> Couleur par digit</label>
+      <div class="grid">
+        <label>Digit 1<input type="color" id="per_digit_0"></label>
+        <label>Digit 2<input type="color" id="per_digit_1"></label>
+        <label>Digit 3<input type="color" id="per_digit_2"></label>
+        <label>Digit 4<input type="color" id="per_digit_3"></label>
+      </div>
+      <button type="submit">Appliquer</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Points centraux</h2>
+    <form id="dotsForm">
+      <label class="inline"><input type="checkbox" id="dots_enabled"> Points actifs</label>
+      <div class="grid">
+        <label>Couleur gauche<input type="color" id="dot_left_color"></label>
+        <label>Couleur droite<input type="color" id="dot_right_color"></label>
+      </div>
+      <label class="inline"><input type="checkbox" id="force_override"> Forcer les deux points avec une couleur unique</label>
+      <label>Couleur forcée<input type="color" id="forced_color"></label>
+      <button type="submit">Sauvegarder</button>
+    </form>
+  </section>
+
+  <section>
+    <button class="secondary" id="refreshBtn">Rafraîchir les valeurs</button>
+  </section>
+
+  <div id="toast"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const MODES = ["clock","timer","weather","custom","alarm","off"];
+
+    function showToast(message, error = false) {
+      const toast = $("toast");
+      toast.textContent = message;
+      toast.style.background = error ? "#c0392b" : "#16a34a";
+      toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 2500);
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    }
+
+    async function postJson(url, payload) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+      return data;
+    }
+
+    function setSelectValue(selectId, value) {
+      const select = $(selectId);
+      if (MODES.includes(value)) {
+        select.value = value;
+      }
+    }
+
+    async function loadPower() {
+      const data = await fetchJson("/api/power");
+      $("power_on").checked = data.power_on;
+      setSelectValue("power_mode", data.mode);
+      setSelectValue("startup_mode", data.startup_mode);
+    }
+
+    async function loadTime() {
+      const data = await fetchJson("/api/time");
+      $("time_hour").value = data.hour;
+      $("time_minute").value = data.minute;
+      $("time_second").value = data.second;
+      $("ntp_server").value = data.ntp_server || "";
+      $("utc_offset").value = data.utc_offset_minutes || 0;
+    }
+
+    async function loadDisplay() {
+      const data = await fetchJson("/api/display");
+      $("brightness").value = data.brightness;
+      $("general_color").value = data.general_color || "#ffffff";
+      $("per_digit_enabled").checked = !!data.per_digit_color?.enabled;
+      const values = data.per_digit_color?.values || [];
+    for (let i = 0; i < 4; i++) {
+      const color = values[i] || data.general_color || "#ffffff";
+      $("per_digit_" + i).value = color;
+    }
+  }
+
+    async function loadDots() {
+      const data = await fetchJson("/api/dots");
+    $("dots_enabled").checked = data.enabled;
+    $("dot_left_color").value = data.left_color || "#ffffff";
+    $("dot_right_color").value = data.right_color || "#ffffff";
+    $("force_override").checked = data.force_override || false;
+    $("forced_color").value = data.forced_color || "#ff0000";
+    }
+
+    async function loadAll() {
+      try {
+        await Promise.all([loadPower(), loadTime(), loadDisplay(), loadDots()]);
+        showToast("Configuration chargée");
+      } catch (err) {
+        showToast("Erreur de chargement : " + err.message, true);
+      }
+    }
+
+    $("powerForm").addEventListener("submit", async (evt) => {
+      evt.preventDefault();
+      try {
+        await postJson("/api/power", {
+          power_on: $("power_on").checked,
+          mode: $("power_mode").value,
+          startup_mode: $("startup_mode").value
+        });
+        showToast("Modes mis à jour");
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+
+    $("timeForm").addEventListener("submit", async (evt) => {
+      evt.preventDefault();
+      try {
+        await postJson("/api/time", {
+          hour: Number($("time_hour").value),
+          minute: Number($("time_minute").value),
+          second: Number($("time_second").value),
+          ntp_server: $("ntp_server").value,
+          utc_offset_minutes: Number($("utc_offset").value)
+        });
+        showToast("Heure synchronisée");
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+
+    $("displayForm").addEventListener("submit", async (evt) => {
+      evt.preventDefault();
+      try {
+        const perDigitValues = [];
+        for (let i = 0; i < 4; i++) {
+          perDigitValues.push($("per_digit_" + i).value);
+        }
+        await postJson("/api/display", {
+          brightness: Number($("brightness").value),
+          general_color: $("general_color").value,
+          per_digit_color: {
+            enabled: $("per_digit_enabled").checked,
+            values: perDigitValues
+          }
+        });
+        showToast("Affichage mis à jour");
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+
+    $("dotsForm").addEventListener("submit", async (evt) => {
+      evt.preventDefault();
+      try {
+        await postJson("/api/dots", {
+          enabled: $("dots_enabled").checked,
+          left_color: $("dot_left_color").value,
+          right_color: $("dot_right_color").value,
+          force_override: $("force_override").checked,
+          forced_color: $("forced_color").value
+        });
+        showToast("Points mis à jour");
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+
+    $("refreshBtn").addEventListener("click", (evt) => {
+      evt.preventDefault();
+      loadAll();
+    });
+
+    loadAll();
+  </script>
+</body>
+</html>
+)rawliteral";
 // Segment encoding order: A, B, C, D, E, F, G (bit 0 = segment A)
 constexpr uint8_t DIGIT_SEGMENTS[10] = {
     0b00111111, // 0
@@ -74,19 +339,14 @@ struct DisplaySettings {
   Color generalColor{255, 85, 0};
   bool perDigitEnabled{false};
   Color perDigitColor[DIGIT_COUNT];
-  bool singleDigitOverride{false};
-  uint8_t singleDigitIndex{0};
-  Color singleDigitColor{255, 255, 255};
 };
 
 struct DotsSettings {
   bool enabled{true};
   Color leftColor{255, 255, 255};
   Color rightColor{255, 255, 255};
-  bool forceLeft{false};
-  bool forceRight{false};
-  Color forcedLeftColor{255, 0, 0};
-  Color forcedRightColor{255, 0, 0};
+  bool forceOverride{false};
+  Color forcedColor{255, 0, 0};
 };
 
 struct NetworkSettings {
@@ -243,19 +503,13 @@ bool saveConfig() {
   for (uint8_t i = 0; i < DIGIT_COUNT; ++i) {
     perDigitValues.add(colorToHex(config.display.perDigitColor[i]));
   }
-  JsonObject singleOverride = display.createNestedObject("single_digit_override");
-  singleOverride["enabled"] = config.display.singleDigitOverride;
-  singleOverride["index"] = config.display.singleDigitIndex;
-  singleOverride["color"] = colorToHex(config.display.singleDigitColor);
 
   JsonObject dots = doc.createNestedObject("dots");
   dots["enabled"] = config.dots.enabled;
   dots["left_color"] = colorToHex(config.dots.leftColor);
   dots["right_color"] = colorToHex(config.dots.rightColor);
-  dots["force_left"] = config.dots.forceLeft;
-  dots["force_right"] = config.dots.forceRight;
-  dots["forced_left_color"] = colorToHex(config.dots.forcedLeftColor);
-  dots["forced_right_color"] = colorToHex(config.dots.forcedRightColor);
+  dots["force_override"] = config.dots.forceOverride;
+  dots["forced_color"] = colorToHex(config.dots.forcedColor);
 
   JsonObject network = doc.createNestedObject("network");
   network["ntp_server"] = config.network.ntpServer;
@@ -327,12 +581,6 @@ bool loadConfig() {
         }
       }
     }
-    JsonObject singleOverride = display["single_digit_override"].as<JsonObject>();
-    if (!singleOverride.isNull()) {
-      config.display.singleDigitOverride = singleOverride["enabled"].as<bool>();
-      config.display.singleDigitIndex = constrain(singleOverride["index"].as<int>(), 0, DIGIT_COUNT - 1);
-      config.display.singleDigitColor = hexToColor(singleOverride["color"].as<String>(), config.display.generalColor);
-    }
   }
 
   JsonObject dots = doc["dots"].as<JsonObject>();
@@ -340,10 +588,10 @@ bool loadConfig() {
     config.dots.enabled = dots["enabled"].as<bool>();
     config.dots.leftColor = hexToColor(dots["left_color"].as<String>(), config.dots.leftColor);
     config.dots.rightColor = hexToColor(dots["right_color"].as<String>(), config.dots.rightColor);
-    config.dots.forceLeft = dots["force_left"].as<bool>();
-    config.dots.forceRight = dots["force_right"].as<bool>();
-    config.dots.forcedLeftColor = hexToColor(dots["forced_left_color"].as<String>(), config.dots.forcedLeftColor);
-    config.dots.forcedRightColor = hexToColor(dots["forced_right_color"].as<String>(), config.dots.forcedRightColor);
+    if (dots.containsKey("force_override")) {
+      config.dots.forceOverride = dots["force_override"].as<bool>();
+    }
+    config.dots.forcedColor = hexToColor(dots["forced_color"].as<String>(), config.dots.forcedColor);
   }
 
   JsonObject network = doc["network"].as<JsonObject>();
@@ -382,9 +630,6 @@ TimeSettings computeCurrentTime() {
 }
 
 Color resolveDigitColor(uint8_t index) {
-  if (config.display.singleDigitOverride && config.display.singleDigitIndex == index) {
-    return config.display.singleDigitColor;
-  }
   if (config.display.perDigitEnabled) {
     return config.display.perDigitColor[index];
   }
@@ -424,8 +669,8 @@ void renderDots(OperatingMode mode) {
   uint32_t rightColor = 0;
 
   if (showDots && dotsVisible) {
-    Color left = config.dots.forceLeft ? config.dots.forcedLeftColor : config.dots.leftColor;
-    Color right = config.dots.forceRight ? config.dots.forcedRightColor : config.dots.rightColor;
+    Color left = config.dots.forceOverride ? config.dots.forcedColor : config.dots.leftColor;
+    Color right = config.dots.forceOverride ? config.dots.forcedColor : config.dots.rightColor;
     leftColor = asPixelColor(left);
     rightColor = asPixelColor(right);
   }
@@ -456,7 +701,7 @@ void renderSolidColor(const Color &color) {
 }
 
 void renderCustomMode() {
-  if (config.display.perDigitEnabled || config.display.singleDigitOverride) {
+  if (config.display.perDigitEnabled) {
     renderClock();
   } else {
     renderSolidColor(config.display.generalColor);
@@ -606,10 +851,6 @@ void handleGetDisplay() {
   for (uint8_t i = 0; i < DIGIT_COUNT; ++i) {
     values.add(colorToHex(config.display.perDigitColor[i]));
   }
-  JsonObject singleOverride = root.createNestedObject("single_digit_override");
-  singleOverride["enabled"] = config.display.singleDigitOverride;
-  singleOverride["index"] = config.display.singleDigitIndex;
-  singleOverride["color"] = colorToHex(config.display.singleDigitColor);
   sendJson(doc);
 }
 
@@ -653,21 +894,6 @@ void handlePostDisplay() {
     }
   }
 
-  if (doc.containsKey("single_digit_override")) {
-    JsonObject singleOverride = doc["single_digit_override"].as<JsonObject>();
-    if (!singleOverride.isNull()) {
-      if (singleOverride.containsKey("enabled")) {
-        config.display.singleDigitOverride = singleOverride["enabled"].as<bool>();
-      }
-      if (singleOverride.containsKey("index")) {
-        config.display.singleDigitIndex = constrain(singleOverride["index"].as<int>(), 0, DIGIT_COUNT - 1);
-      }
-      if (singleOverride.containsKey("color")) {
-        config.display.singleDigitColor = hexToColor(singleOverride["color"].as<String>(), config.display.singleDigitColor);
-      }
-    }
-  }
-
   applyDisplaySettings();
   saveConfig();
   updateDisplay();
@@ -680,10 +906,8 @@ void handleGetDots() {
   root["enabled"] = config.dots.enabled;
   root["left_color"] = colorToHex(config.dots.leftColor);
   root["right_color"] = colorToHex(config.dots.rightColor);
-  root["force_left"] = config.dots.forceLeft;
-  root["force_right"] = config.dots.forceRight;
-  root["forced_left_color"] = colorToHex(config.dots.forcedLeftColor);
-  root["forced_right_color"] = colorToHex(config.dots.forcedRightColor);
+  root["force_override"] = config.dots.forceOverride;
+  root["forced_color"] = colorToHex(config.dots.forcedColor);
   sendJson(doc);
 }
 
@@ -704,17 +928,11 @@ void handlePostDots() {
   if (doc.containsKey("right_color")) {
     config.dots.rightColor = hexToColor(doc["right_color"].as<String>(), config.dots.rightColor);
   }
-  if (doc.containsKey("force_left")) {
-    config.dots.forceLeft = doc["force_left"].as<bool>();
+  if (doc.containsKey("force_override")) {
+    config.dots.forceOverride = doc["force_override"].as<bool>();
   }
-  if (doc.containsKey("force_right")) {
-    config.dots.forceRight = doc["force_right"].as<bool>();
-  }
-  if (doc.containsKey("forced_left_color")) {
-    config.dots.forcedLeftColor = hexToColor(doc["forced_left_color"].as<String>(), config.dots.forcedLeftColor);
-  }
-  if (doc.containsKey("forced_right_color")) {
-    config.dots.forcedRightColor = hexToColor(doc["forced_right_color"].as<String>(), config.dots.forcedRightColor);
+  if (doc.containsKey("forced_color")) {
+    config.dots.forcedColor = hexToColor(doc["forced_color"].as<String>(), config.dots.forcedColor);
   }
 
   saveConfig();
@@ -722,11 +940,15 @@ void handlePostDots() {
   handleGetDots();
 }
 
-void handleRoot() {
+void handleWebUi() {
+  server.send_P(200, "text/html", WEB_UI_HTML);
+}
+
+void handleInfo() {
   DynamicJsonDocument doc(256);
   doc["project"] = "ESP8266 Clock";
   doc["status"] = "ok";
-  doc["endpoints"] = F("/api/power, /api/time, /api/display, /api/dots");
+  doc["endpoints"] = F("/api/power, /api/time, /api/display, /api/dots, /api/info");
   sendJson(doc);
 }
 
@@ -735,7 +957,8 @@ void handleNotFound() {
 }
 
 void setupWebServer() {
-  server.on("/", HTTP_GET, handleRoot);
+  server.on("/", HTTP_GET, handleWebUi);
+  server.on("/index.html", HTTP_GET, handleWebUi);
 
   server.on("/api/power", HTTP_GET, handleGetPower);
   server.on("/api/power", HTTP_POST, handlePostPower);
@@ -752,6 +975,8 @@ void setupWebServer() {
   server.on("/api/dots", HTTP_GET, handleGetDots);
   server.on("/api/dots", HTTP_POST, handlePostDots);
   server.on("/api/dots", HTTP_OPTIONS, handleCorsPreflight);
+
+  server.on("/api/info", HTTP_GET, handleInfo);
 
   server.onNotFound(handleNotFound);
   server.begin();

@@ -32,25 +32,21 @@ Structure principale :
     "per_digit_color": {
       "enabled": false,
       "values": ["#FF5500", "#FF5500", "#FF5500", "#FF5500"]
-    },
-    "single_digit_override": { "enabled": false, "index": 0, "color": "#FFFFFF" }
+    }
   },
   "dots": {
     "enabled": true,
     "left_color": "#FFFFFF",
     "right_color": "#FFFFFF",
-    "force_left": false,
-    "force_right": false,
-    "forced_left_color": "#FF0000",
-    "forced_right_color": "#FF0000"
+    "force_override": false,
+    "forced_color": "#FF0000"
   },
   "network": { "ntp_server": "pool.ntp.org", "utc_offset_minutes": 0 }
 }
 ```
 - Les couleurs sont exprimées en hexadécimal `#RRGGBB`.
 - `per_digit_color.values` contient 4 entrées (digits 0→3). Activer `enabled` applique ces couleurs à la place de `general_color`.
-- `single_digit_override` force un digit précis (`index` 0→3) sur une couleur donnée.
-- `dots.force_*` permet de forcer ponctuellement l'un des points avec la couleur associée.
+- `dots.force_override` applique temporairement `forced_color` sur les deux points (sinon chaque point utilise sa couleur dédiée).
 - `network.ntp_server` définit le serveur NTP utilisé à chaque synchronisation (modifiable via l'API `/api/time` ou en éditant le fichier).
 - `network.utc_offset_minutes` applique un décalage horaire (en minutes, plage -720 ↔ 840) par rapport à UTC lors de la synchronisation.
 
@@ -80,15 +76,17 @@ curl -X POST http://clock.local/api/power \
 - `brightness` (1-255).
 - `general_color`: couleur par défaut.
 - `per_digit_color`: objet `{ enabled: bool, values: ["#RRGGBB", ...] }` ou directement un tableau pour activer la coloration par digit.
-- `single_digit_override`: `{ enabled, index, color }` pour surcharger un digit donné.
 
 ### `/api/dots`
 - `enabled`: active les deux points.
 - `left_color`, `right_color`: couleurs individuelles.
-- `force_left`, `force_right`: force l'allumage ponctuel (avec `forced_left_color`, `forced_right_color`).
+- `force_override`, `forced_color`: force simultanément les deux points avec une même couleur.
 
-### Racine `/`
-Retourne un petit JSON de statut (nom du projet et liste des endpoints exposés).
+### Interface `/`
+- Accéder à `http://<IP>/` ouvre une interface web légère (HTML/JS) qui consomme les endpoints REST pour éditer `config.json` (alimentation, heure/NTP, affichage, points, offset UTC). Aucune dépendance externe, tout est embarqué dans le firmware.
+
+### `/api/info`
+- Retourne un petit JSON de statut (nom du projet et liste des endpoints exposés).
 
 ## Déploiement et test
 1. Installer les dépendances définies dans `platformio.ini` (ArduinoJson, Adafruit NeoPixel, WiFiManager).
@@ -101,7 +99,7 @@ Retourne un petit JSON de statut (nom du projet et liste des endpoints exposés)
 - `clock` : affiche HH:MM avec masquage du zéro initial et rafraîchissement toutes les 250 ms.
 - `timer` et `alarm` : identiques à `clock` mais les points clignotent pour indiquer un état particulier. L'implémentation peut facilement évoluer vers un vrai compte à rebours.
 - `weather` : remplit les 30 LED avec `general_color`. Peut être remplacé par un rendu météo (température, icône, etc.).
-- `custom` : si `per_digit_color` ou `single_digit_override` est activé, l'affichage HH:MM est utilisé, sinon toutes les LED sont remplies avec `general_color`.
+- `custom` : si `per_digit_color` est activé, l'affichage HH:MM est utilisé, sinon toutes les LED sont remplies avec `general_color`.
 
 ## Fichiers clés
 - `src/main.cpp` : firmware complet (WiFiManager, LittleFS, API HTTP, gestion NeoPixel).

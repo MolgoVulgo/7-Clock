@@ -21,24 +21,17 @@
         "#FF5500",
         "#FF5500"
       ]
-    },
-    "single_digit_override": {
-      "enabled": false,
-      "index": 0,
-      "color": "#FFFFFF"
     }
   },
   "dots": {
     "enabled": true,
     "left_color": "#FFFFFF",
     "right_color": "#FFFFFF",
-    "force_left": false,
-    "force_right": false,
-    "forced_left_color": "#FF0000",
-    "forced_right_color": "#FF0000"
+    "force_override": false,
+    "forced_color": "#FF0000"
   },
   "network": {
     "ntp_server": "pool.ntp.org",
-    "utc_offset_minutes": 60
+    "utc_offset_minutes": 0
   }
 }
