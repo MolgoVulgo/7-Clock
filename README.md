@@ -15,6 +15,7 @@ Projet PlatformIO pour une horloge 4 digits (Wemos D1 mini / ESP-12E) pilotant 3
 4. **Modes** : `clock` est pleinement implémenté. Les modes `timer`, `weather`, `custom` et `alarm` réutilisent actuellement l'affichage principal (avec clignotement des points pour `timer`/`alarm`) et servent de base pour des comportements plus évolués. Le mode `off` coupe simplement toutes les LED.
 5. **Synchronisation NTP** : à chaque démarrage (et lors des modifications via l'API), l'horloge synchronise l'heure sur le serveur configuré (`pool.ntp.org` par défaut) et applique un décalage UTC paramétrable.
 6. **Plage nocturne** : une fenêtre horaire optionnelle peut réduire automatiquement la luminosité (jusqu'à éteindre totalement) pour préserver l'obscurité.
+7. **Mise à jour OTA** : ArduinoOTA est activé (nom d'hôte `esp8266-clock`), permettant de flasher le firmware via Wi-Fi.
 
 ## Configuration (`config.json`)
 Structure principale :
@@ -102,9 +103,13 @@ curl -X POST http://clock.local/api/power \
 ## Déploiement et test
 1. Installer les dépendances définies dans `platformio.ini` (ArduinoJson, Adafruit NeoPixel, WiFiManager).
 2. Construire le firmware : `pio run`. (Selon votre environnement, PlatformIO peut nécessiter les droits d'écriture sur `~/.platformio`.)
-3. Téléverser le firmware : `pio run -t upload`.
+3. Téléverser le firmware par USB : `pio run -t upload`.
 4. Charger `data/config.json` sur LittleFS : `pio run -t uploadfs`.
 5. À la première mise sous tension, rejoignez le portail WiFi `Clock-Setup` pour configurer le réseau.
+6. **OTA (optionnel)** : une fois l'ESP8266 connecté au Wi-Fi, vous pouvez flasher via le réseau :
+   - Découvrez l'adresse (`esp8266-clock.local` si mDNS est supporté ou via votre box/routeur).
+   - Utilisez l'environnement `esp12e-ota` : `pio run -e esp12e-ota -t upload --upload-port <ip-ou-nom>`.
+   - Cette opération exploite ArduinoOTA (sans mot de passe par défaut). Pensez à sécuriser votre réseau local si l'OTA est activé.
 
 ## Personnalisation des modes
 - `clock` : affiche HH:MM avec masquage du zéro initial et rafraîchissement toutes les 250 ms.

@@ -6,6 +6,7 @@
 #include <ESP8266WiFi.h>
 #include <LittleFS.h>
 #include <WiFiManager.h>
+#include <ArduinoOTA.h>
 #include <time.h>
 #include "index.h"
 
@@ -896,6 +897,34 @@ void ensureWiFi() {
   }
 }
 
+void setupOta() {
+  ArduinoOTA.setHostname("esp8266-clock");
+  ArduinoOTA.onStart([]() {
+#ifdef DEBUG_SERIAL
+    Serial.println(F("[OTA] Start update"));
+#endif
+  });
+  ArduinoOTA.onEnd([]() {
+#ifdef DEBUG_SERIAL
+    Serial.println(F("[OTA] Update finished"));
+#endif
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+#ifdef DEBUG_SERIAL
+    Serial.printf("[OTA] Progress: %u%%\n", (progress * 100) / total);
+#endif
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+#ifdef DEBUG_SERIAL
+    Serial.printf("[OTA] Error[%u]\n", error);
+#endif
+  });
+  ArduinoOTA.begin();
+#ifdef DEBUG_SERIAL
+  Serial.println(F("[OTA] Ready"));
+#endif
+}
+
 }  // namespace
 
 void setup() {
@@ -922,6 +951,7 @@ void setup() {
   applyDisplaySettings();
 
   ensureWiFi();
+  setupOta();
   if (syncTimeFromNtp()) {
     saveConfig();
   }
@@ -934,6 +964,7 @@ void setup() {
 }
 
 void loop() {
+  ArduinoOTA.handle();
   server.handleClient();
   if (millis() - lastDisplayRefresh >= DISPLAY_REFRESH_MS) {
     lastDisplayRefresh = millis();
