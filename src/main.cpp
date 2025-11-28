@@ -26,6 +26,9 @@ constexpr uint32_t DISPLAY_REFRESH_MS = 250;
 constexpr size_t JSON_CAPACITY = 3072;
 constexpr uint8_t NTP_MAX_ATTEMPTS = 40;
 constexpr uint16_t NTP_RETRY_DELAY_MS = 250;
+constexpr uint32_t NTP_SYNC_INTERVAL_MS = 24UL * 60UL * 60UL * 1000UL;
+constexpr uint32_t NTP_RETRY_INTERVAL_MS = 10UL * 60UL * 1000UL;
+constexpr uint32_t ALARM_DURATION_MS = 5UL * 60UL * 1000UL;
 
 
 // Segment encoding order: A, B, C, D, E, F, G (bit 0 = segment A)
@@ -98,6 +101,16 @@ struct DotsSettings {
   Color forcedColor{255, 0, 0};
 };
 
+struct AlarmSettings {
+  bool enabled{false};
+  uint8_t hour{7};
+  uint8_t minute{0};
+  bool active{false};
+  unsigned long startMs{0};
+  uint8_t lastTriggerHour{255};
+  uint8_t lastTriggerMinute{255};
+};
+
 struct NetworkSettings {
   String ntpServer{"pool.ntp.org"};
   int16_t utcOffsetMinutes{0};
@@ -108,6 +121,7 @@ struct ClockConfig {
   TimeSettings time;
   DisplaySettings display;
   DotsSettings dots;
+  AlarmSettings alarm;
   NetworkSettings network;
 };
 
@@ -118,6 +132,8 @@ TimeSettings timeAnchor;
 unsigned long timeReferenceMs = 0;
 unsigned long lastDisplayRefresh = 0;
 uint8_t currentAppliedBrightness = 0;
+unsigned long lastNtpSyncMs = 0;
+unsigned long lastNtpAttemptMs = 0;
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 ESP8266WebServer server(80);
@@ -211,6 +227,7 @@ String sanitizeMode(const String &value) {
 
 TimeSettings computeCurrentTime();
 void applyDisplaySettingsWithTime(const TimeSettings &time);
+void stopAlarm();
 
 void applyDisplaySettings() {
   applyDisplaySettingsWithTime(computeCurrentTime());
@@ -224,6 +241,7 @@ void loadDefaultConfig() {
     config.display.perDigitColor[i] = config.display.generalColor;
   }
   config.dots = DotsSettings();
+  config.alarm = AlarmSettings();
   config.network = NetworkSettings();
 }
 
@@ -270,6 +288,11 @@ bool saveConfig() {
   dots["right_color"] = colorToHex(config.dots.rightColor);
   dots["force_override"] = config.dots.forceOverride;
   dots["forced_color"] = colorToHex(config.dots.forcedColor);
+
+  JsonObject alarm = doc.createNestedObject("alarm");
+  alarm["enabled"] = config.alarm.enabled;
+  alarm["hour"] = config.alarm.hour;
+  alarm["minute"] = config.alarm.minute;
 
   JsonObject network = doc.createNestedObject("network");
   network["ntp_server"] = config.network.ntpServer;
@@ -364,6 +387,13 @@ bool loadConfig() {
     config.dots.forcedColor = hexToColor(dots["forced_color"].as<String>(), config.dots.forcedColor);
   }
 
+  JsonObject alarm = doc["alarm"].as<JsonObject>();
+  if (!alarm.isNull()) {
+    config.alarm.enabled = alarm["enabled"].as<bool>();
+    config.alarm.hour = constrain(alarm["hour"].as<int>(), 0, 23);
+    config.alarm.minute = constrain(alarm["minute"].as<int>(), 0, 59);
+  }
+
   JsonObject network = doc["network"].as<JsonObject>();
   if (!network.isNull()) {
     String ntp = network["ntp_server"].as<String>();
@@ -437,6 +467,54 @@ void applyDisplaySettingsWithTime(const TimeSettings &time) {
   }
 }
 
+void startAlarm(const TimeSettings &time) {
+  config.alarm.active = true;
+  config.alarm.startMs = millis();
+  config.alarm.lastTriggerHour = time.hour;
+  config.alarm.lastTriggerMinute = time.minute;
+#ifdef DEBUG_SERIAL
+  Serial.println(F("[Alarm] Triggered"));
+#endif
+}
+
+void stopAlarm() {
+  if (!config.alarm.active) {
+    return;
+  }
+  config.alarm.active = false;
+  config.alarm.startMs = 0;
+#ifdef DEBUG_SERIAL
+  Serial.println(F("[Alarm] Cleared"));
+#endif
+  applyDisplaySettings();
+}
+
+void updateAlarmState(const TimeSettings &time) {
+  if (config.alarm.active) {
+    if (millis() - config.alarm.startMs >= ALARM_DURATION_MS) {
+      stopAlarm();
+    }
+    return;
+  }
+
+  if (!config.alarm.enabled) {
+    config.alarm.lastTriggerHour = 255;
+    config.alarm.lastTriggerMinute = 255;
+    return;
+  }
+
+  if (time.hour == config.alarm.hour && time.minute == config.alarm.minute) {
+    bool alreadyTriggered = (config.alarm.lastTriggerHour == time.hour &&
+                             config.alarm.lastTriggerMinute == time.minute);
+    if (!alreadyTriggered) {
+      startAlarm(time);
+    }
+  } else {
+    config.alarm.lastTriggerHour = 255;
+    config.alarm.lastTriggerMinute = 255;
+  }
+}
+
 Color resolveDigitColor(uint8_t index) {
   if (config.display.perDigitEnabled) {
     return config.display.perDigitColor[index];
@@ -501,6 +579,18 @@ void renderClock(const TimeSettings &now) {
   }
 }
 
+void renderClockWithColor(const TimeSettings &time, const Color &color) {
+  const uint8_t hourTens = time.hour / 10;
+  const uint8_t hourUnits = time.hour % 10;
+  const uint8_t minuteTens = time.minute / 10;
+  const uint8_t minuteUnits = time.minute % 10;
+  uint8_t digits[DIGIT_COUNT] = {hourTens, hourUnits, minuteTens, minuteUnits};
+  for (uint8_t i = 0; i < DIGIT_COUNT; ++i) {
+    const bool suppressLeadingZero = (i == HOUR_TENS_DIGIT_INDEX);
+    writeDigit(i, digits[i], color, suppressLeadingZero);
+  }
+}
+
 void renderSolidColor(const Color &color) {
   for (uint16_t i = 0; i < LED_COUNT; ++i) {
     strip.setPixelColor(i, asPixelColor(color));
@@ -518,35 +608,55 @@ void renderCustomMode(const TimeSettings &time) {
 void updateDisplay() {
   OperatingMode mode = config.power.powerOn ? modeFromString(config.power.mode) : OperatingMode::Off;
   TimeSettings now = computeCurrentTime();
-  applyDisplaySettingsWithTime(now);
-  if (mode == OperatingMode::Off || !config.power.powerOn) {
+  updateAlarmState(now);
+  if (config.alarm.active) {
+    if (currentAppliedBrightness != 255) {
+      strip.setBrightness(255);
+      currentAppliedBrightness = 255;
+    }
+  } else {
+    applyDisplaySettingsWithTime(now);
+  }
+  if ((mode == OperatingMode::Off || !config.power.powerOn) && !config.alarm.active) {
     strip.clear();
     strip.show();
     return;
   }
 
-  switch (mode) {
-    case OperatingMode::Clock:
-      renderClock(now);
-      break;
-    case OperatingMode::Timer:
-      renderClock(now);
-      break;
-    case OperatingMode::Weather:
-      renderSolidColor(config.display.generalColor);
-      break;
-    case OperatingMode::Custom:
-      renderCustomMode(now);
-      break;
-    case OperatingMode::Alarm:
-      renderClock(now);
-      break;
-    case OperatingMode::Off:
+  if (config.alarm.active) {
+    bool visible = ((millis() / 500UL) % 2 == 0);
+    if (visible) {
       strip.clear();
-      break;
+      renderClockWithColor(now, Color(255, 255, 255));
+      strip.setPixelColor(DOT_LEFT_INDEX, strip.Color(255, 255, 255));
+      strip.setPixelColor(DOT_RIGHT_INDEX, strip.Color(255, 255, 255));
+    } else {
+      strip.clear();
+    }
+  } else {
+    switch (mode) {
+      case OperatingMode::Clock:
+        renderClock(now);
+        break;
+      case OperatingMode::Timer:
+        renderClock(now);
+        break;
+      case OperatingMode::Weather:
+        renderSolidColor(config.display.generalColor);
+        break;
+      case OperatingMode::Custom:
+        renderCustomMode(now);
+        break;
+      case OperatingMode::Alarm:
+        renderClock(now);
+        break;
+      case OperatingMode::Off:
+        strip.clear();
+        break;
+    }
+    renderDots(mode);
   }
 
-  renderDots(mode);
   strip.show();
 }
 
@@ -598,13 +708,21 @@ void handlePostPower() {
 }
 
 void handleGetTime() {
-  DynamicJsonDocument doc(256);
+  DynamicJsonDocument doc(384);
   JsonObject root = doc.to<JsonObject>();
   root["hour"] = config.time.hour;
   root["minute"] = config.time.minute;
   root["second"] = config.time.second;
   root["ntp_server"] = config.network.ntpServer;
   root["utc_offset_minutes"] = config.network.utcOffsetMinutes;
+  TimeSettings now = computeCurrentTime();
+  JsonObject current = root.createNestedObject("current");
+  current["hour"] = now.hour;
+  current["minute"] = now.minute;
+  current["second"] = now.second;
+  char buffer[9];
+  snprintf(buffer, sizeof(buffer), "%02u:%02u:%02u", now.hour, now.minute, now.second);
+  current["formatted"] = buffer;
   sendJson(doc);
 }
 
@@ -782,6 +900,45 @@ void handlePostDots() {
   handleGetDots();
 }
 
+void handleGetAlarm() {
+  DynamicJsonDocument doc(256);
+  JsonObject root = doc.to<JsonObject>();
+  root["enabled"] = config.alarm.enabled;
+  root["hour"] = config.alarm.hour;
+  root["minute"] = config.alarm.minute;
+  root["active"] = config.alarm.active;
+  root["remaining_ms"] = config.alarm.active
+                             ? max(0L, static_cast<long>(ALARM_DURATION_MS - (millis() - config.alarm.startMs)))
+                             : 0;
+  sendJson(doc);
+}
+
+void handlePostAlarm() {
+  DynamicJsonDocument doc(256);
+  DeserializationError err = deserializeJson(doc, getRequestBody());
+  if (err) {
+    sendJsonError("Invalid JSON payload");
+    return;
+  }
+
+  if (doc.containsKey("enabled")) {
+    config.alarm.enabled = doc["enabled"].as<bool>();
+  }
+  if (doc.containsKey("hour")) {
+    config.alarm.hour = constrain(doc["hour"].as<int>(), 0, 23);
+  }
+  if (doc.containsKey("minute")) {
+    config.alarm.minute = constrain(doc["minute"].as<int>(), 0, 59);
+  }
+  bool requestStop = doc.containsKey("stop") && doc["stop"].as<bool>();
+  if (requestStop || !config.alarm.enabled) {
+    stopAlarm();
+  }
+
+  saveConfig();
+  handleGetAlarm();
+}
+
 void handleWebUi() {
   server.send_P(200, "text/html", WEB_UI_HTML);
 }
@@ -790,7 +947,7 @@ void handleInfo() {
   DynamicJsonDocument doc(256);
   doc["project"] = "ESP8266 Clock";
   doc["status"] = "ok";
-  doc["endpoints"] = F("/api/power, /api/time, /api/display, /api/dots, /api/info");
+  doc["endpoints"] = F("/api/power, /api/time, /api/display, /api/dots, /api/alarm, /api/info");
   sendJson(doc);
 }
 
@@ -818,6 +975,10 @@ void setupWebServer() {
   server.on("/api/dots", HTTP_POST, handlePostDots);
   server.on("/api/dots", HTTP_OPTIONS, handleCorsPreflight);
 
+  server.on("/api/alarm", HTTP_GET, handleGetAlarm);
+  server.on("/api/alarm", HTTP_POST, handlePostAlarm);
+  server.on("/api/alarm", HTTP_OPTIONS, handleCorsPreflight);
+
   server.on("/api/info", HTTP_GET, handleInfo);
 
   server.onNotFound(handleNotFound);
@@ -838,6 +999,7 @@ bool syncTimeFromNtp() {
     return false;
   }
 
+  lastNtpAttemptMs = millis();
 #ifdef DEBUG_SERIAL
   Serial.print(F("[Clock] Syncing time via NTP: "));
   Serial.println(config.network.ntpServer);
@@ -870,6 +1032,8 @@ bool syncTimeFromNtp() {
       config.time.second = constrain(timeInfo.tm_sec, 0, 59);
       timeAnchor = config.time;
       timeReferenceMs = millis();
+      lastNtpSyncMs = millis();
+      lastNtpAttemptMs = lastNtpSyncMs;
 #ifdef DEBUG_SERIAL
       Serial.printf("[Clock] NTP sync OK: %02u:%02u:%02u\n", config.time.hour, config.time.minute,
                     config.time.second);
@@ -965,9 +1129,18 @@ void setup() {
 
 void loop() {
   ArduinoOTA.handle();
+  unsigned long nowMs = millis();
+  if (WiFi.status() == WL_CONNECTED) {
+    bool needInitialSync = (lastNtpSyncMs == 0);
+    bool dueDailySync = (!needInitialSync) && (nowMs - lastNtpSyncMs >= NTP_SYNC_INTERVAL_MS);
+    bool readyForRetry = (nowMs - lastNtpAttemptMs >= NTP_RETRY_INTERVAL_MS);
+    if ((needInitialSync || dueDailySync) && readyForRetry) {
+      syncTimeFromNtp();
+    }
+  }
   server.handleClient();
-  if (millis() - lastDisplayRefresh >= DISPLAY_REFRESH_MS) {
-    lastDisplayRefresh = millis();
+  if (nowMs - lastDisplayRefresh >= DISPLAY_REFRESH_MS) {
+    lastDisplayRefresh = nowMs;
     updateDisplay();
   }
 }

@@ -24,11 +24,13 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
     .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 0.5rem; }
     #toast { position: fixed; top: 1rem; right: 1rem; padding: 0.75rem 1rem; background: #2563eb; color: #fff; border-radius: 6px; opacity: 0; transition: opacity 0.3s ease; }
     #toast.visible { opacity: 1; }
+    .live-clock { font-size: 2.5rem; font-weight: bold; margin: 1rem 0; color: #111827; }
   </style>
 </head>
 <body>
   <h1>Configuration Horloge ESP8266</h1>
   <p>Utilisez les formulaires ci-dessous pour modifier les paramètres stockés dans <code>config.json</code>. Les modifications sont appliquées immédiatement.</p>
+  <div id="live_clock" class="live-clock">--:--:--</div>
 
   <section>
     <h2>Alimentation & Modes</h2>
@@ -114,6 +116,20 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
   </section>
 
   <section>
+    <h2>Alarme</h2>
+    <form id="alarmForm">
+      <label class="inline"><input type="checkbox" id="alarm_enabled"> Activer l'alarme</label>
+      <div class="grid">
+        <label>Heure (0-23)<input type="number" id="alarm_hour" min="0" max="23"></label>
+        <label>Minute (0-59)<input type="number" id="alarm_minute" min="0" max="59"></label>
+      </div>
+      <p>Statut : <span id="alarm_status">-</span></p>
+      <button type="submit">Mettre à jour</button>
+      <button type="button" class="secondary" id="alarm_stop_btn">Arrêter l'alarme</button>
+    </form>
+  </section>
+
+  <section>
     <button class="secondary" id="refreshBtn">Rafraîchir les valeurs</button>
   </section>
 
@@ -122,6 +138,40 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
   <script>
     const $ = (id) => document.getElementById(id);
     const MODES = ["clock","timer","weather","custom","alarm","off"];
+    let liveClockSeconds = null;
+    let liveClockLastUpdateMs = null;
+
+    function updateLiveClockDisplay() {
+      if (liveClockSeconds === null || liveClockLastUpdateMs === null) {
+        $("live_clock").textContent = "--:--:--";
+        return;
+      }
+      const now = Date.now();
+      const elapsed = Math.floor((now - liveClockLastUpdateMs) / 1000);
+      if (elapsed > 0) {
+        liveClockSeconds = (liveClockSeconds + elapsed) % (24 * 3600);
+        liveClockLastUpdateMs += elapsed * 1000;
+      }
+      const hours = Math.floor(liveClockSeconds / 3600);
+      const minutes = Math.floor((liveClockSeconds % 3600) / 60);
+      const seconds = liveClockSeconds % 60;
+      $("live_clock").textContent = [hours, minutes, seconds].map((v) => String(v).padStart(2, "0")).join(":");
+    }
+
+    function setLiveClock(current) {
+      if (!current) {
+        liveClockSeconds = null;
+        liveClockLastUpdateMs = null;
+        $("live_clock").textContent = "--:--:--";
+        return;
+      }
+      liveClockSeconds = ((Number(current.hour) || 0) * 3600) + ((Number(current.minute) || 0) * 60) + (Number(current.second) || 0);
+      liveClockSeconds %= (24 * 3600);
+      liveClockLastUpdateMs = Date.now();
+      updateLiveClockDisplay();
+    }
+
+    setInterval(updateLiveClockDisplay, 1000);
 
     function showToast(message, error = false) {
       const toast = $("toast");
@@ -169,6 +219,7 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
       $("time_second").value = data.second;
       $("ntp_server").value = data.ntp_server || "";
       $("utc_offset").value = data.utc_offset_minutes || 0;
+      setLiveClock(data.current);
     }
 
     async function loadDisplay() {
@@ -199,9 +250,17 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
       $("forced_color").value = data.forced_color || "#ff0000";
     }
 
+    async function loadAlarm() {
+      const data = await fetchJson("/api/alarm");
+      $("alarm_enabled").checked = data.enabled;
+      $("alarm_hour").value = data.hour;
+      $("alarm_minute").value = data.minute;
+      $("alarm_status").textContent = data.active ? "Active" : "Inactif";
+    }
+
     async function loadAll() {
       try {
-        await Promise.all([loadPower(), loadTime(), loadDisplay(), loadDots()]);
+        await Promise.all([loadPower(), loadTime(), loadDisplay(), loadDots(), loadAlarm()]);
         showToast("Configuration chargée");
       } catch (err) {
         showToast("Erreur de chargement : " + err.message, true);
@@ -278,6 +337,31 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
           forced_color: $("forced_color").value
         });
         showToast("Points mis à jour");
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+
+    $("alarmForm").addEventListener("submit", async (evt) => {
+      evt.preventDefault();
+      try {
+        await postJson("/api/alarm", {
+          enabled: $("alarm_enabled").checked,
+          hour: Number($("alarm_hour").value),
+          minute: Number($("alarm_minute").value)
+        });
+        showToast("Alarme mise à jour");
+        loadAlarm();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+
+    $("alarm_stop_btn").addEventListener("click", async () => {
+      try {
+        await postJson("/api/alarm", { stop: true });
+        showToast("Alarme arrêtée");
+        loadAlarm();
       } catch (err) {
         showToast(err.message, true);
       }

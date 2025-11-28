@@ -38,6 +38,11 @@
     "force_override": false,
     "forced_color": "#FF0000"
   },
+  "alarm": {
+    "enabled": false,
+    "hour": 7,
+    "minute": 0
+  },
   "network": {
     "ntp_server": "pool.ntp.org",
     "utc_offset_minutes": 0

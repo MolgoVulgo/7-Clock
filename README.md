@@ -13,9 +13,10 @@ Projet PlatformIO pour une horloge 4 digits (Wemos D1 mini / ESP-12E) pilotant 3
 2. **WiFiManager** lance un portail de configuration « Clock-Setup » s'il ne retrouve pas de réseau connu. Dès que le WiFi est disponible, le serveur HTTP embarqué (port 80) expose l'API.
 3. **Interface LED** : un Adafruit_NeoPixel gère les 30 LED. Chaque digit comporte 7 segments (ordre A–G) et les deux points centraux occupent les indices 14 (gauche) et 15 (droite).
 4. **Modes** : `clock` est pleinement implémenté. Les modes `timer`, `weather`, `custom` et `alarm` réutilisent actuellement l'affichage principal (avec clignotement des points pour `timer`/`alarm`) et servent de base pour des comportements plus évolués. Le mode `off` coupe simplement toutes les LED.
-5. **Synchronisation NTP** : à chaque démarrage (et lors des modifications via l'API), l'horloge synchronise l'heure sur le serveur configuré (`pool.ntp.org` par défaut) et applique un décalage UTC paramétrable.
+5. **Synchronisation NTP** : à chaque démarrage (et lors des modifications via l'API), l'horloge synchronise l'heure sur le serveur configuré (`pool.ntp.org` par défaut), applique un décalage UTC paramétrable et relance automatiquement une resynchronisation toutes les 24 h pour limiter la dérive.
 6. **Plage nocturne** : une fenêtre horaire optionnelle peut réduire automatiquement la luminosité (jusqu'à éteindre totalement) pour préserver l'obscurité.
-7. **Mise à jour OTA** : ArduinoOTA est activé (nom d'hôte `esp8266-clock`), permettant de flasher le firmware via Wi-Fi.
+7. **Alarme quotidienne** : une alarme paramétrable via l'interface web fait clignoter l'heure en blanc à luminosité maximale pendant 5 minutes à l'heure choisie.
+8. **Mise à jour OTA** : ArduinoOTA est activé (nom d'hôte `esp8266-clock`), permettant de flasher le firmware via Wi-Fi.
 
 ## Configuration (`config.json`)
 Structure principale :
@@ -51,6 +52,11 @@ Structure principale :
     "force_override": false,
     "forced_color": "#FF0000"
   },
+  "alarm": {
+    "enabled": false,
+    "hour": 7,
+    "minute": 0
+  },
   "network": { "ntp_server": "pool.ntp.org", "utc_offset_minutes": 0 }
 }
 ```
@@ -58,6 +64,7 @@ Structure principale :
 - `per_digit_color.values` contient 4 entrées (digits 0→3). Activer `enabled` applique ces couleurs à la place de `general_color`.
 - `display.quiet_hours` réduit automatiquement la luminosité (jusqu'à 0) entre `start_*` et `end_*`. Lorsque la plage chevauche minuit, la réduction s'applique sur deux jours.
 - `dots.force_override` applique temporairement `forced_color` sur les deux points (sinon chaque point utilise sa couleur dédiée).
+- `alarm` configure l'heure de déclenchement quotidienne (l'alarme se répète chaque jour si activée).
 - `network.ntp_server` définit le serveur NTP utilisé à chaque synchronisation (modifiable via l'API `/api/time` ou en éditant le fichier).
 - `network.utc_offset_minutes` applique un décalage horaire (en minutes, plage -720 ↔ 840) par rapport à UTC lors de la synchronisation.
 
@@ -82,6 +89,7 @@ curl -X POST http://clock.local/api/power \
 ### `/api/time`
 - Détermine l'heure de départ utilisée par `ModeClock` lorsque aucun autre minuteur n'est actif.
 - Champs : `hour` (0-23), `minute` (0-59), `second` (0-59), `ntp_server` (chaîne), `utc_offset_minutes` (entier entre -720 et 840). Envoyer un `ntp_server` ou un `utc_offset_minutes` déclenche une resynchronisation immédiate tant que le WiFi est connecté.
+- La réponse retourne également un objet `current` avec l'heure/minute/seconde courantes (ainsi qu'un format texte) utilisée par l'interface web pour afficher l'heure en direct.
 
 ### `/api/display`
 - `brightness` (1-255).
@@ -94,8 +102,12 @@ curl -X POST http://clock.local/api/power \
 - `left_color`, `right_color`: couleurs individuelles.
 - `force_override`, `forced_color`: force simultanément les deux points avec une même couleur.
 
+### `/api/alarm`
+- `GET`: renvoie `enabled`, `hour`, `minute`, `active`, `remaining_ms`.
+- `POST`: accepte `enabled` (bool), `hour` (0-23), `minute` (0-59) et/ou `stop` (`true` arrête immédiatement l'alarme en cours).
+
 ### Interface `/`
-- Accéder à `http://<IP>/` ouvre une interface web légère (HTML/JS) qui consomme les endpoints REST pour éditer `config.json` (alimentation, heure/NTP, affichage, points, offset UTC). Aucune dépendance externe : la page est embarquée dans `include/index.h` et servie depuis la flash (PROGMEM).
+- Accéder à `http://<IP>/` ouvre une interface web légère (HTML/JS) qui consomme les endpoints REST pour éditer `config.json` (alimentation, heure/NTP, affichage, points, offset UTC). Aucune dépendance externe : la page est embarquée dans `include/index.h`, affiche en direct l'heure de l'horloge et est servie depuis la flash (PROGMEM).
 
 ### `/api/info`
 - Retourne un petit JSON de statut (nom du projet et liste des endpoints exposés).
