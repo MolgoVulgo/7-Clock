@@ -109,6 +109,7 @@ struct AlarmSettings {
   unsigned long startMs{0};
   uint8_t lastTriggerHour{255};
   uint8_t lastTriggerMinute{255};
+  uint8_t daysMask{0x7F};  // bits 0-6 represent Sunday-Saturday
 };
 
 struct NetworkSettings {
@@ -175,7 +176,7 @@ void sendJson(const JsonDocument &doc, int code = 200) {
 }
 
 void sendJsonError(const String &message, int code = 400) {
-  DynamicJsonDocument doc(256);
+  StaticJsonDocument<256> doc;
   doc["error"] = message;
   sendJson(doc, code);
 }
@@ -228,6 +229,8 @@ String sanitizeMode(const String &value) {
 TimeSettings computeCurrentTime();
 void applyDisplaySettingsWithTime(const TimeSettings &time);
 void stopAlarm();
+bool isAlarmScheduledToday(uint8_t weekday);
+uint8_t computeWeekdayFromSeconds(uint32_t seconds);
 
 void applyDisplaySettings() {
   applyDisplaySettingsWithTime(computeCurrentTime());
@@ -253,28 +256,28 @@ bool saveConfig() {
   if (!file) {
     return false;
   }
-  DynamicJsonDocument doc(JSON_CAPACITY);
-  JsonObject power = doc.createNestedObject("power");
+  StaticJsonDocument<JSON_CAPACITY> doc;
+  JsonObject power = doc["power"].to<JsonObject>();
   power["power_on"] = config.power.powerOn;
   power["startup_mode"] = config.power.startupMode;
   power["mode"] = config.power.mode;
   power["exit_special_mode"] = config.power.exitSpecialMode;
 
-  JsonObject time = doc.createNestedObject("time");
+  JsonObject time = doc["time"].to<JsonObject>();
   time["hour"] = config.time.hour;
   time["minute"] = config.time.minute;
   time["second"] = config.time.second;
 
-  JsonObject display = doc.createNestedObject("display");
+  JsonObject display = doc["display"].to<JsonObject>();
   display["brightness"] = config.display.brightness;
   display["general_color"] = colorToHex(config.display.generalColor);
-  JsonObject perDigit = display.createNestedObject("per_digit_color");
+  JsonObject perDigit = display["per_digit_color"].to<JsonObject>();
   perDigit["enabled"] = config.display.perDigitEnabled;
-  JsonArray perDigitValues = perDigit.createNestedArray("values");
+  JsonArray perDigitValues = perDigit["values"].to<JsonArray>();
   for (uint8_t i = 0; i < DIGIT_COUNT; ++i) {
     perDigitValues.add(colorToHex(config.display.perDigitColor[i]));
   }
-  JsonObject quiet = display.createNestedObject("quiet_hours");
+  JsonObject quiet = display["quiet_hours"].to<JsonObject>();
   quiet["enabled"] = config.display.quietHours.enabled;
   quiet["start_hour"] = config.display.quietHours.startHour;
   quiet["start_minute"] = config.display.quietHours.startMinute;
@@ -282,19 +285,20 @@ bool saveConfig() {
   quiet["end_minute"] = config.display.quietHours.endMinute;
   quiet["dim_brightness"] = config.display.quietHours.dimBrightness;
 
-  JsonObject dots = doc.createNestedObject("dots");
+  JsonObject dots = doc["dots"].to<JsonObject>();
   dots["enabled"] = config.dots.enabled;
   dots["left_color"] = colorToHex(config.dots.leftColor);
   dots["right_color"] = colorToHex(config.dots.rightColor);
   dots["force_override"] = config.dots.forceOverride;
   dots["forced_color"] = colorToHex(config.dots.forcedColor);
 
-  JsonObject alarm = doc.createNestedObject("alarm");
+  JsonObject alarm = doc["alarm"].to<JsonObject>();
   alarm["enabled"] = config.alarm.enabled;
   alarm["hour"] = config.alarm.hour;
   alarm["minute"] = config.alarm.minute;
+  alarm["days_mask"] = config.alarm.daysMask;
 
-  JsonObject network = doc.createNestedObject("network");
+  JsonObject network = doc["network"].to<JsonObject>();
   network["ntp_server"] = config.network.ntpServer;
   network["utc_offset_minutes"] = config.network.utcOffsetMinutes;
 
@@ -323,7 +327,7 @@ bool loadConfig() {
     return false;
   }
 
-  DynamicJsonDocument doc(JSON_CAPACITY);
+  StaticJsonDocument<JSON_CAPACITY> doc;
   DeserializationError err = deserializeJson(doc, file);
   file.close();
   if (err) {
@@ -381,7 +385,7 @@ bool loadConfig() {
     config.dots.enabled = dots["enabled"].as<bool>();
     config.dots.leftColor = hexToColor(dots["left_color"].as<String>(), config.dots.leftColor);
     config.dots.rightColor = hexToColor(dots["right_color"].as<String>(), config.dots.rightColor);
-    if (dots.containsKey("force_override")) {
+    if (!dots["force_override"].isNull()) {
       config.dots.forceOverride = dots["force_override"].as<bool>();
     }
     config.dots.forcedColor = hexToColor(dots["forced_color"].as<String>(), config.dots.forcedColor);
@@ -392,6 +396,9 @@ bool loadConfig() {
     config.alarm.enabled = alarm["enabled"].as<bool>();
     config.alarm.hour = constrain(alarm["hour"].as<int>(), 0, 23);
     config.alarm.minute = constrain(alarm["minute"].as<int>(), 0, 59);
+    if (!alarm["days_mask"].isNull()) {
+      config.alarm.daysMask = alarm["days_mask"].as<uint8_t>();
+    }
   }
 
   JsonObject network = doc["network"].as<JsonObject>();
@@ -400,7 +407,7 @@ bool loadConfig() {
     if (ntp.length() > 0) {
       config.network.ntpServer = ntp;
     }
-    if (network.containsKey("utc_offset_minutes")) {
+    if (!network["utc_offset_minutes"].isNull()) {
       config.network.utcOffsetMinutes =
           constrain(network["utc_offset_minutes"].as<int>(), -720, 840);  // -12h to +14h
     }
@@ -455,6 +462,30 @@ bool isQuietHoursActive(const TimeSettings &time) {
   return isInRangeWrap(current, start, end);
 }
 
+uint8_t computeWeekdayFromSeconds(uint32_t seconds) {
+  (void)seconds;
+  if (lastNtpSyncMs == 0) {
+    return 7;
+  }
+  time_t now = time(nullptr);
+  if (now <= 0) {
+    return 7;
+  }
+  struct tm timeInfo;
+#if defined(ESP8266)
+  if (gmtime_r(&now, &timeInfo) == nullptr) {
+    return 7;
+  }
+#else
+  struct tm *tmp = gmtime(&now);
+  if (!tmp) {
+    return 7;
+  }
+  timeInfo = *tmp;
+#endif
+  return static_cast<uint8_t>(timeInfo.tm_wday);
+}
+
 void applyDisplaySettingsWithTime(const TimeSettings &time) {
   uint8_t desired = constrain(config.display.brightness, static_cast<uint8_t>(1), static_cast<uint8_t>(255));
   if (config.display.quietHours.enabled && isQuietHoursActive(time)) {
@@ -465,6 +496,13 @@ void applyDisplaySettingsWithTime(const TimeSettings &time) {
     strip.setBrightness(desired);
     currentAppliedBrightness = desired;
   }
+}
+
+bool isAlarmScheduledToday(uint8_t weekday) {
+  if (weekday > 6) {
+    return true;
+  }
+  return config.alarm.daysMask & (1 << weekday);
 }
 
 void startAlarm(const TimeSettings &time) {
@@ -503,7 +541,9 @@ void updateAlarmState(const TimeSettings &time) {
     return;
   }
 
-  if (time.hour == config.alarm.hour && time.minute == config.alarm.minute) {
+  uint8_t weekday = computeWeekdayFromSeconds(timeToSeconds(time));
+  if (time.hour == config.alarm.hour && time.minute == config.alarm.minute &&
+      isAlarmScheduledToday(weekday)) {
     bool alreadyTriggered = (config.alarm.lastTriggerHour == time.hour &&
                              config.alarm.lastTriggerMinute == time.minute);
     if (!alreadyTriggered) {
@@ -673,7 +713,7 @@ void handleCorsPreflight() {
 }
 
 void handleGetPower() {
-  DynamicJsonDocument doc(512);
+  StaticJsonDocument<512> doc;
   JsonObject root = doc.to<JsonObject>();
   root["power_on"] = config.power.powerOn;
   root["mode"] = config.power.mode;
@@ -683,22 +723,22 @@ void handleGetPower() {
 }
 
 void handlePostPower() {
-  DynamicJsonDocument doc(JSON_CAPACITY / 4);
+  StaticJsonDocument<JSON_CAPACITY / 4> doc;
   DeserializationError err = deserializeJson(doc, getRequestBody());
   if (err) {
     sendJsonError("Invalid JSON payload");
     return;
   }
-  if (doc.containsKey("power_on")) {
+  if (!doc["power_on"].isNull()) {
     config.power.powerOn = doc["power_on"].as<bool>();
   }
-  if (doc.containsKey("mode")) {
+  if (!doc["mode"].isNull()) {
     config.power.mode = sanitizeMode(doc["mode"].as<String>());
   }
-  if (doc.containsKey("startup_mode")) {
+  if (!doc["startup_mode"].isNull()) {
     config.power.startupMode = sanitizeMode(doc["startup_mode"].as<String>());
   }
-  if (doc.containsKey("exit_special_mode") && doc["exit_special_mode"].as<bool>()) {
+  if (doc["exit_special_mode"].as<bool>()) {
     config.power.mode = config.power.startupMode;
     config.power.exitSpecialMode = false;
   }
@@ -708,7 +748,7 @@ void handlePostPower() {
 }
 
 void handleGetTime() {
-  DynamicJsonDocument doc(384);
+  StaticJsonDocument<384> doc;
   JsonObject root = doc.to<JsonObject>();
   root["hour"] = config.time.hour;
   root["minute"] = config.time.minute;
@@ -720,14 +760,14 @@ void handleGetTime() {
   current["hour"] = now.hour;
   current["minute"] = now.minute;
   current["second"] = now.second;
-  char buffer[9];
+  char buffer[12];
   snprintf(buffer, sizeof(buffer), "%02u:%02u:%02u", now.hour, now.minute, now.second);
   current["formatted"] = buffer;
   sendJson(doc);
 }
 
 void handlePostTime() {
-  DynamicJsonDocument doc(256);
+  StaticJsonDocument<256> doc;
   DeserializationError err = deserializeJson(doc, getRequestBody());
   if (err) {
     sendJsonError("Invalid JSON payload");
@@ -736,23 +776,23 @@ void handlePostTime() {
 
   bool ntpServerUpdated = false;
 
-  if (doc.containsKey("hour")) {
+  if (!doc["hour"].isNull()) {
     config.time.hour = constrain(doc["hour"].as<int>(), 0, 23);
   }
-  if (doc.containsKey("minute")) {
+  if (!doc["minute"].isNull()) {
     config.time.minute = constrain(doc["minute"].as<int>(), 0, 59);
   }
-  if (doc.containsKey("second")) {
+  if (!doc["second"].isNull()) {
     config.time.second = constrain(doc["second"].as<int>(), 0, 59);
   }
-  if (doc.containsKey("ntp_server")) {
+  if (!doc["ntp_server"].isNull()) {
     String ntp = doc["ntp_server"].as<String>();
     if (ntp.length() > 0) {
       config.network.ntpServer = ntp;
       ntpServerUpdated = true;
     }
   }
-  if (doc.containsKey("utc_offset_minutes")) {
+  if (!doc["utc_offset_minutes"].isNull()) {
     config.network.utcOffsetMinutes =
         constrain(doc["utc_offset_minutes"].as<int>(), -720, 840);
     ntpServerUpdated = true;  // re-sync to apply offset change
@@ -769,7 +809,7 @@ void handlePostTime() {
 }
 
 void handleGetDisplay() {
-  DynamicJsonDocument doc(JSON_CAPACITY / 2);
+  StaticJsonDocument<JSON_CAPACITY / 2> doc;
   JsonObject root = doc.to<JsonObject>();
   root["brightness"] = config.display.brightness;
   root["general_color"] = colorToHex(config.display.generalColor);
@@ -790,27 +830,27 @@ void handleGetDisplay() {
 }
 
 void handlePostDisplay() {
-  DynamicJsonDocument doc(JSON_CAPACITY / 2);
+  StaticJsonDocument<JSON_CAPACITY / 2> doc;
   DeserializationError err = deserializeJson(doc, getRequestBody());
   if (err) {
     sendJsonError("Invalid JSON payload");
     return;
   }
 
-  if (doc.containsKey("brightness")) {
+  if (!doc["brightness"].isNull()) {
     config.display.brightness = constrain(doc["brightness"].as<int>(), 1, 255);
   }
-  if (doc.containsKey("general_color")) {
+  if (!doc["general_color"].isNull()) {
     config.display.generalColor = hexToColor(doc["general_color"].as<String>(), config.display.generalColor);
   }
 
-  if (doc.containsKey("per_digit_color")) {
+  if (!doc["per_digit_color"].isNull()) {
     if (doc["per_digit_color"].is<JsonObject>()) {
       JsonObject perDigit = doc["per_digit_color"].as<JsonObject>();
-      if (perDigit.containsKey("enabled")) {
+      if (!perDigit["enabled"].isNull()) {
         config.display.perDigitEnabled = perDigit["enabled"].as<bool>();
       }
-      if (perDigit.containsKey("values")) {
+      if (perDigit["values"].is<JsonArray>()) {
         JsonArray values = perDigit["values"].as<JsonArray>();
         for (uint8_t i = 0; i < DIGIT_COUNT; ++i) {
           if (!values.isNull() && i < values.size()) {
@@ -829,25 +869,25 @@ void handlePostDisplay() {
     }
   }
 
-  if (doc.containsKey("quiet_hours")) {
+  if (!doc["quiet_hours"].isNull()) {
     JsonObject quiet = doc["quiet_hours"].as<JsonObject>();
     if (!quiet.isNull()) {
-      if (quiet.containsKey("enabled")) {
+      if (!quiet["enabled"].isNull()) {
         config.display.quietHours.enabled = quiet["enabled"].as<bool>();
       }
-      if (quiet.containsKey("start_hour")) {
+      if (!quiet["start_hour"].isNull()) {
         config.display.quietHours.startHour = constrain(quiet["start_hour"].as<int>(), 0, 23);
       }
-      if (quiet.containsKey("start_minute")) {
+      if (!quiet["start_minute"].isNull()) {
         config.display.quietHours.startMinute = constrain(quiet["start_minute"].as<int>(), 0, 59);
       }
-      if (quiet.containsKey("end_hour")) {
+      if (!quiet["end_hour"].isNull()) {
         config.display.quietHours.endHour = constrain(quiet["end_hour"].as<int>(), 0, 23);
       }
-      if (quiet.containsKey("end_minute")) {
+      if (!quiet["end_minute"].isNull()) {
         config.display.quietHours.endMinute = constrain(quiet["end_minute"].as<int>(), 0, 59);
       }
-      if (quiet.containsKey("dim_brightness")) {
+      if (!quiet["dim_brightness"].isNull()) {
         config.display.quietHours.dimBrightness =
             constrain(quiet["dim_brightness"].as<int>(), 0, 255);
       }
@@ -861,7 +901,7 @@ void handlePostDisplay() {
 }
 
 void handleGetDots() {
-  DynamicJsonDocument doc(512);
+  StaticJsonDocument<512> doc;
   JsonObject root = doc.to<JsonObject>();
   root["enabled"] = config.dots.enabled;
   root["left_color"] = colorToHex(config.dots.leftColor);
@@ -872,26 +912,26 @@ void handleGetDots() {
 }
 
 void handlePostDots() {
-  DynamicJsonDocument doc(512);
+  StaticJsonDocument<512> doc;
   DeserializationError err = deserializeJson(doc, getRequestBody());
   if (err) {
     sendJsonError("Invalid JSON payload");
     return;
   }
 
-  if (doc.containsKey("enabled")) {
+  if (!doc["enabled"].isNull()) {
     config.dots.enabled = doc["enabled"].as<bool>();
   }
-  if (doc.containsKey("left_color")) {
+  if (!doc["left_color"].isNull()) {
     config.dots.leftColor = hexToColor(doc["left_color"].as<String>(), config.dots.leftColor);
   }
-  if (doc.containsKey("right_color")) {
+  if (!doc["right_color"].isNull()) {
     config.dots.rightColor = hexToColor(doc["right_color"].as<String>(), config.dots.rightColor);
   }
-  if (doc.containsKey("force_override")) {
+  if (!doc["force_override"].isNull()) {
     config.dots.forceOverride = doc["force_override"].as<bool>();
   }
-  if (doc.containsKey("forced_color")) {
+  if (!doc["forced_color"].isNull()) {
     config.dots.forcedColor = hexToColor(doc["forced_color"].as<String>(), config.dots.forcedColor);
   }
 
@@ -901,11 +941,12 @@ void handlePostDots() {
 }
 
 void handleGetAlarm() {
-  DynamicJsonDocument doc(256);
+  StaticJsonDocument<256> doc;
   JsonObject root = doc.to<JsonObject>();
   root["enabled"] = config.alarm.enabled;
   root["hour"] = config.alarm.hour;
   root["minute"] = config.alarm.minute;
+  root["days_mask"] = config.alarm.daysMask;
   root["active"] = config.alarm.active;
   root["remaining_ms"] = config.alarm.active
                              ? max(0L, static_cast<long>(ALARM_DURATION_MS - (millis() - config.alarm.startMs)))
@@ -914,23 +955,26 @@ void handleGetAlarm() {
 }
 
 void handlePostAlarm() {
-  DynamicJsonDocument doc(256);
+  StaticJsonDocument<256> doc;
   DeserializationError err = deserializeJson(doc, getRequestBody());
   if (err) {
     sendJsonError("Invalid JSON payload");
     return;
   }
 
-  if (doc.containsKey("enabled")) {
+  if (!doc["enabled"].isNull()) {
     config.alarm.enabled = doc["enabled"].as<bool>();
   }
-  if (doc.containsKey("hour")) {
+  if (!doc["hour"].isNull()) {
     config.alarm.hour = constrain(doc["hour"].as<int>(), 0, 23);
   }
-  if (doc.containsKey("minute")) {
+  if (!doc["minute"].isNull()) {
     config.alarm.minute = constrain(doc["minute"].as<int>(), 0, 59);
   }
-  bool requestStop = doc.containsKey("stop") && doc["stop"].as<bool>();
+  if (!doc["days_mask"].isNull()) {
+    config.alarm.daysMask = doc["days_mask"].as<uint8_t>();
+  }
+  bool requestStop = doc["stop"].as<bool>();
   if (requestStop || !config.alarm.enabled) {
     stopAlarm();
   }
@@ -944,7 +988,7 @@ void handleWebUi() {
 }
 
 void handleInfo() {
-  DynamicJsonDocument doc(256);
+  StaticJsonDocument<256> doc;
   doc["project"] = "ESP8266 Clock";
   doc["status"] = "ok";
   doc["endpoints"] = F("/api/power, /api/time, /api/display, /api/dots, /api/alarm, /api/info");

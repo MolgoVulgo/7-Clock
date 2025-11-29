@@ -1,0 +1,530 @@
+Building in release mode
+Compiling .pio/build/esp12e-ota/src/main.cpp.o
+src/main.cpp: In function 'void {anonymous}::sendJsonError(const String&, int)':
+src/main.cpp:179:23: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(int)'
+  179 |   JsonDocument doc(256);
+      |                       ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'int' to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'int' to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:179:20: error: invalid conversion from 'int' to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  179 |   JsonDocument doc(256);
+      |                    ^~~
+      |                    |
+      |                    int
+src/main.cpp: In function 'bool {anonymous}::saveConfig()':
+src/main.cpp:259:33: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const size_t&)'
+  259 |   JsonDocument doc(JSON_CAPACITY);
+      |                                 ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'const size_t' {aka 'const unsigned int'} to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'const size_t' {aka 'const unsigned int'} to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:259:20: error: invalid conversion from 'size_t' {aka 'unsigned int'} to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  259 |   JsonDocument doc(JSON_CAPACITY);
+      |                    ^~~~~~~~~~~~~
+      |                    |
+      |                    size_t {aka unsigned int}
+src/main.cpp: In function 'bool {anonymous}::loadConfig()':
+src/main.cpp:330:33: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const size_t&)'
+  330 |   JsonDocument doc(JSON_CAPACITY);
+      |                                 ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'const size_t' {aka 'const unsigned int'} to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'const size_t' {aka 'const unsigned int'} to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:330:20: error: invalid conversion from 'size_t' {aka 'unsigned int'} to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  330 |   JsonDocument doc(JSON_CAPACITY);
+      |                    ^~~~~~~~~~~~~
+      |                    |
+      |                    size_t {aka unsigned int}
+src/main.cpp: In function 'void {anonymous}::handleGetPower()':
+src/main.cpp:716:23: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(int)'
+  716 |   JsonDocument doc(512);
+      |                       ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'int' to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'int' to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:716:20: error: invalid conversion from 'int' to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  716 |   JsonDocument doc(512);
+      |                    ^~~
+      |                    |
+      |                    int
+src/main.cpp: In function 'void {anonymous}::handlePostPower()':
+src/main.cpp:726:37: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(unsigned int)'
+  726 |   JsonDocument doc(JSON_CAPACITY / 4);
+      |                                     ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'unsigned int' to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'unsigned int' to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:726:34: error: invalid conversion from 'unsigned int' to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  726 |   JsonDocument doc(JSON_CAPACITY / 4);
+      |                    ~~~~~~~~~~~~~~^~~
+      |                                  |
+      |                                  unsigned int
+src/main.cpp: In function 'void {anonymous}::handleGetTime()':
+src/main.cpp:751:23: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(int)'
+  751 |   JsonDocument doc(384);
+      |                       ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'int' to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'int' to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:751:20: error: invalid conversion from 'int' to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  751 |   JsonDocument doc(384);
+      |                    ^~~
+      |                    |
+      |                    int
+src/main.cpp:759:57: warning: 'ArduinoJson::V742PB22::JsonObject ArduinoJson::V742PB22::JsonObject::createNestedObject(TChar*) [with TChar = const char]' is deprecated: use obj[key].to<JsonObject>() instead [-Wdeprecated-declarations]
+  759 |   JsonObject current = root.createNestedObject("current");
+      |                                                         ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:39,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Object/JsonObject.hpp:211:14: note: declared here
+  211 |   JsonObject createNestedObject(TChar* key) {
+      |              ^~~~~~~~~~~~~~~~~~
+src/main.cpp: In function 'void {anonymous}::handlePostTime()':
+src/main.cpp:770:23: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(int)'
+  770 |   JsonDocument doc(256);
+      |                       ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'int' to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'int' to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:770:20: error: invalid conversion from 'int' to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  770 |   JsonDocument doc(256);
+      |                    ^~~
+      |                    |
+      |                    int
+src/main.cpp: In function 'void {anonymous}::handleGetDisplay()':
+src/main.cpp:812:37: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(unsigned int)'
+  812 |   JsonDocument doc(JSON_CAPACITY / 2);
+      |                                     ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'unsigned int' to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'unsigned int' to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:812:34: error: invalid conversion from 'unsigned int' to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  812 |   JsonDocument doc(JSON_CAPACITY / 2);
+      |                    ~~~~~~~~~~~~~~^~~
+      |                                  |
+      |                                  unsigned int
+src/main.cpp:816:66: warning: 'ArduinoJson::V742PB22::JsonObject ArduinoJson::V742PB22::JsonObject::createNestedObject(TChar*) [with TChar = const char]' is deprecated: use obj[key].to<JsonObject>() instead [-Wdeprecated-declarations]
+  816 |   JsonObject perDigit = root.createNestedObject("per_digit_color");
+      |                                                                  ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:39,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Object/JsonObject.hpp:211:14: note: declared here
+  211 |   JsonObject createNestedObject(TChar* key) {
+      |              ^~~~~~~~~~~~~~~~~~
+src/main.cpp:818:57: warning: 'ArduinoJson::V742PB22::JsonArray ArduinoJson::V742PB22::JsonObject::createNestedArray(TChar*) const [with TChar = const char]' is deprecated: use obj[key].to<JsonArray>() instead [-Wdeprecated-declarations]
+  818 |   JsonArray values = perDigit.createNestedArray("values");
+      |                                                         ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:39,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Object/JsonObject.hpp:197:13: note: declared here
+  197 |   JsonArray createNestedArray(TChar* key) const {
+      |             ^~~~~~~~~~~~~~~~~
+src/main.cpp:822:59: warning: 'ArduinoJson::V742PB22::JsonObject ArduinoJson::V742PB22::JsonObject::createNestedObject(TChar*) [with TChar = const char]' is deprecated: use obj[key].to<JsonObject>() instead [-Wdeprecated-declarations]
+  822 |   JsonObject quiet = root.createNestedObject("quiet_hours");
+      |                                                           ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:39,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Object/JsonObject.hpp:211:14: note: declared here
+  211 |   JsonObject createNestedObject(TChar* key) {
+      |              ^~~~~~~~~~~~~~~~~~
+src/main.cpp: In function 'void {anonymous}::handlePostDisplay()':
+src/main.cpp:833:37: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(unsigned int)'
+  833 |   JsonDocument doc(JSON_CAPACITY / 2);
+      |                                     ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'unsigned int' to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'unsigned int' to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:833:34: error: invalid conversion from 'unsigned int' to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  833 |   JsonDocument doc(JSON_CAPACITY / 2);
+      |                    ~~~~~~~~~~~~~~^~~
+      |                                  |
+      |                                  unsigned int
+src/main.cpp: In function 'void {anonymous}::handleGetDots()':
+src/main.cpp:904:23: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(int)'
+  904 |   JsonDocument doc(512);
+      |                       ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'int' to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'int' to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:904:20: error: invalid conversion from 'int' to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  904 |   JsonDocument doc(512);
+      |                    ^~~
+      |                    |
+      |                    int
+src/main.cpp: In function 'void {anonymous}::handlePostDots()':
+src/main.cpp:915:23: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(int)'
+  915 |   JsonDocument doc(512);
+      |                       ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'int' to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'int' to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:915:20: error: invalid conversion from 'int' to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  915 |   JsonDocument doc(512);
+      |                    ^~~
+      |                    |
+      |                    int
+src/main.cpp: In function 'void {anonymous}::handleGetAlarm()':
+src/main.cpp:944:23: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(int)'
+  944 |   JsonDocument doc(256);
+      |                       ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'int' to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'int' to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:944:20: error: invalid conversion from 'int' to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  944 |   JsonDocument doc(256);
+      |                    ^~~
+      |                    |
+      |                    int
+src/main.cpp: In function 'void {anonymous}::handlePostAlarm()':
+src/main.cpp:958:23: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(int)'
+  958 |   JsonDocument doc(256);
+      |                       ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'int' to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'int' to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:958:20: error: invalid conversion from 'int' to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  958 |   JsonDocument doc(256);
+      |                    ^~~
+      |                    |
+      |                    int
+src/main.cpp: In function 'void {anonymous}::handleInfo()':
+src/main.cpp:991:23: error: no matching function for call to 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(int)'
+  991 |   JsonDocument doc(256);
+      |                       ^
+In file included from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.hpp:42,
+                 from .pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson.h:9,
+                 from src/main.cpp:3:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note: candidate: 'template<class T, typename ArduinoJson::V742PB22::detail::enable_if<((((ArduinoJson::V742PB22::detail::IsVariant<T>::value || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArray>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonArrayConst>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObject>::value) || ArduinoJson::V742PB22::detail::is_same<T, ArduinoJson::V742PB22::JsonObjectConst>::value), int>::type <anonymous> > ArduinoJson::V742PB22::JsonDocument::JsonDocument(const T&, ArduinoJson::V742PB22::Allocator*)'
+   46 |   JsonDocument(const T& src,
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:46:3: note:   template argument deduction/substitution failed:
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:45:40: error: no type named 'type' in 'struct ArduinoJson::V742PB22::detail::enable_if<false, int>'
+   45 |                                 int> = 0>
+      |                                        ^
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::JsonDocument&&)'
+   33 |   JsonDocument(JsonDocument&& src)
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:33:31: note:   no known conversion for argument 1 from 'int' to 'ArduinoJson::V742PB22::JsonDocument&&'
+   33 |   JsonDocument(JsonDocument&& src)
+      |                ~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:3: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(const ArduinoJson::V742PB22::JsonDocument&)'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |   ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:28:36: note:   no known conversion for argument 1 from 'int' to 'const ArduinoJson::V742PB22::JsonDocument&'
+   28 |   JsonDocument(const JsonDocument& src) : JsonDocument(src.allocator()) {
+      |                ~~~~~~~~~~~~~~~~~~~~^~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note: candidate: 'ArduinoJson::V742PB22::JsonDocument::JsonDocument(ArduinoJson::V742PB22::Allocator*)' (near match)
+   24 |   explicit JsonDocument(Allocator* alloc = detail::DefaultAllocator::instance())
+      |            ^~~~~~~~~~~~
+.pio/libdeps/esp12e-ota/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:24:12: note:   conversion of argument 1 would be ill-formed:
+src/main.cpp:991:20: error: invalid conversion from 'int' to 'ArduinoJson::V742PB22::Allocator*' [-fpermissive]
+  991 |   JsonDocument doc(256);
+      |                    ^~~
+      |                    |
+      |                    int
+*** [.pio/build/esp12e-ota/src/main.cpp.o] Error 1
+=========================================================================== [FAILED] Took 1.25 seconds ===========================================================================

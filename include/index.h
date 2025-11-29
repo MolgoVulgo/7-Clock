@@ -123,6 +123,10 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
         <label>Heure (0-23)<input type="number" id="alarm_hour" min="0" max="23"></label>
         <label>Minute (0-59)<input type="number" id="alarm_minute" min="0" max="59"></label>
       </div>
+      <fieldset>
+        <legend>Jours actifs</legend>
+        <div class="grid" id="alarm_days_container"></div>
+      </fieldset>
       <p>Statut : <span id="alarm_status">-</span></p>
       <button type="submit">Mettre à jour</button>
       <button type="button" class="secondary" id="alarm_stop_btn">Arrêter l'alarme</button>
@@ -140,6 +144,7 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
     const MODES = ["clock","timer","weather","custom","alarm","off"];
     let liveClockSeconds = null;
     let liveClockLastUpdateMs = null;
+    const DAY_LABELS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
     function updateLiveClockDisplay() {
       if (liveClockSeconds === null || liveClockLastUpdateMs === null) {
@@ -250,12 +255,36 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
       $("forced_color").value = data.forced_color || "#ff0000";
     }
 
+    function buildAlarmDays() {
+      const container = $("alarm_days_container");
+      container.innerHTML = "";
+      DAY_LABELS.forEach((label, index) => {
+        const id = "alarm_day_" + index;
+        const wrapper = document.createElement("label");
+        wrapper.classList.add("inline");
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.id = id;
+        input.dataset.dayIndex = index;
+        wrapper.appendChild(input);
+        wrapper.appendChild(document.createTextNode(label));
+        container.appendChild(wrapper);
+      });
+    }
+
     async function loadAlarm() {
       const data = await fetchJson("/api/alarm");
       $("alarm_enabled").checked = data.enabled;
       $("alarm_hour").value = data.hour;
       $("alarm_minute").value = data.minute;
       $("alarm_status").textContent = data.active ? "Active" : "Inactif";
+      const mask = data.days_mask ?? 0x7f;
+      DAY_LABELS.forEach((_, index) => {
+        const checkbox = $("alarm_day_" + index);
+        if (checkbox) {
+          checkbox.checked = !!(mask & (1 << index));
+        }
+      });
     }
 
     async function loadAll() {
@@ -345,10 +374,19 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
     $("alarmForm").addEventListener("submit", async (evt) => {
       evt.preventDefault();
       try {
+        let mask = 0;
+        DAY_LABELS.forEach((_, index) => {
+          const checkbox = $("alarm_day_" + index);
+          if (checkbox && checkbox.checked) {
+            mask |= (1 << index);
+          }
+        });
+
         await postJson("/api/alarm", {
           enabled: $("alarm_enabled").checked,
           hour: Number($("alarm_hour").value),
-          minute: Number($("alarm_minute").value)
+          minute: Number($("alarm_minute").value),
+          days_mask: mask
         });
         showToast("Alarme mise à jour");
         loadAlarm();
@@ -372,6 +410,7 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
       loadAll();
     });
 
+    buildAlarmDays();
     loadAll();
   </script>
 </body>

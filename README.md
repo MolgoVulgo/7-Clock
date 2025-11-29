@@ -55,7 +55,8 @@ Structure principale :
   "alarm": {
     "enabled": false,
     "hour": 7,
-    "minute": 0
+    "minute": 0,
+    "days_mask": 127
   },
   "network": { "ntp_server": "pool.ntp.org", "utc_offset_minutes": 0 }
 }
@@ -64,7 +65,7 @@ Structure principale :
 - `per_digit_color.values` contient 4 entrées (digits 0→3). Activer `enabled` applique ces couleurs à la place de `general_color`.
 - `display.quiet_hours` réduit automatiquement la luminosité (jusqu'à 0) entre `start_*` et `end_*`. Lorsque la plage chevauche minuit, la réduction s'applique sur deux jours.
 - `dots.force_override` applique temporairement `forced_color` sur les deux points (sinon chaque point utilise sa couleur dédiée).
-- `alarm` configure l'heure de déclenchement quotidienne (l'alarme se répète chaque jour si activée).
+- `alarm` configure l'heure de déclenchement et les jours de répétition (`days_mask` utilise un bitmask 7 bits, bit 0=dimanche ... bit 6=samedi).
 - `network.ntp_server` définit le serveur NTP utilisé à chaque synchronisation (modifiable via l'API `/api/time` ou en éditant le fichier).
 - `network.utc_offset_minutes` applique un décalage horaire (en minutes, plage -720 ↔ 840) par rapport à UTC lors de la synchronisation.
 
@@ -103,8 +104,8 @@ curl -X POST http://clock.local/api/power \
 - `force_override`, `forced_color`: force simultanément les deux points avec une même couleur.
 
 ### `/api/alarm`
-- `GET`: renvoie `enabled`, `hour`, `minute`, `active`, `remaining_ms`.
-- `POST`: accepte `enabled` (bool), `hour` (0-23), `minute` (0-59) et/ou `stop` (`true` arrête immédiatement l'alarme en cours).
+- `GET`: renvoie `enabled`, `hour`, `minute`, `days_mask`, `active`, `remaining_ms`.
+- `POST`: accepte `enabled` (bool), `hour` (0-23), `minute` (0-59), `days_mask` (0-127) et/ou `stop` (`true` arrête immédiatement l'alarme en cours).
 
 ### Interface `/`
 - Accéder à `http://<IP>/` ouvre une interface web légère (HTML/JS) qui consomme les endpoints REST pour éditer `config.json` (alimentation, heure/NTP, affichage, points, offset UTC). Aucune dépendance externe : la page est embarquée dans `include/index.h`, affiche en direct l'heure de l'horloge et est servie depuis la flash (PROGMEM).

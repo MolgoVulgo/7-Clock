@@ -41,7 +41,8 @@
   "alarm": {
     "enabled": false,
     "hour": 7,
-    "minute": 0
+    "minute": 0,
+    "days_mask": 127
   },
   "network": {
     "ntp_server": "pool.ntp.org",
