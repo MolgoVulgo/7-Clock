@@ -176,7 +176,7 @@ void sendJson(const JsonDocument &doc, int code = 200) {
 }
 
 void sendJsonError(const String &message, int code = 400) {
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   doc["error"] = message;
   sendJson(doc, code);
 }
@@ -256,7 +256,7 @@ bool saveConfig() {
   if (!file) {
     return false;
   }
-  StaticJsonDocument<JSON_CAPACITY> doc;
+  JsonDocument doc;
   JsonObject power = doc["power"].to<JsonObject>();
   power["power_on"] = config.power.powerOn;
   power["startup_mode"] = config.power.startupMode;
@@ -327,7 +327,7 @@ bool loadConfig() {
     return false;
   }
 
-  StaticJsonDocument<JSON_CAPACITY> doc;
+  JsonDocument doc;
   DeserializationError err = deserializeJson(doc, file);
   file.close();
   if (err) {
@@ -713,7 +713,7 @@ void handleCorsPreflight() {
 }
 
 void handleGetPower() {
-  StaticJsonDocument<512> doc;
+  JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
   root["power_on"] = config.power.powerOn;
   root["mode"] = config.power.mode;
@@ -723,7 +723,7 @@ void handleGetPower() {
 }
 
 void handlePostPower() {
-  StaticJsonDocument<JSON_CAPACITY / 4> doc;
+  JsonDocument doc;
   DeserializationError err = deserializeJson(doc, getRequestBody());
   if (err) {
     sendJsonError("Invalid JSON payload");
@@ -748,7 +748,7 @@ void handlePostPower() {
 }
 
 void handleGetTime() {
-  StaticJsonDocument<384> doc;
+  JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
   root["hour"] = config.time.hour;
   root["minute"] = config.time.minute;
@@ -756,7 +756,7 @@ void handleGetTime() {
   root["ntp_server"] = config.network.ntpServer;
   root["utc_offset_minutes"] = config.network.utcOffsetMinutes;
   TimeSettings now = computeCurrentTime();
-  JsonObject current = root.createNestedObject("current");
+  JsonObject current = root["current"].to<JsonObject>();
   current["hour"] = now.hour;
   current["minute"] = now.minute;
   current["second"] = now.second;
@@ -767,7 +767,7 @@ void handleGetTime() {
 }
 
 void handlePostTime() {
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   DeserializationError err = deserializeJson(doc, getRequestBody());
   if (err) {
     sendJsonError("Invalid JSON payload");
@@ -809,17 +809,17 @@ void handlePostTime() {
 }
 
 void handleGetDisplay() {
-  StaticJsonDocument<JSON_CAPACITY / 2> doc;
+  JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
   root["brightness"] = config.display.brightness;
   root["general_color"] = colorToHex(config.display.generalColor);
-  JsonObject perDigit = root.createNestedObject("per_digit_color");
+  JsonObject perDigit = root["per_digit_color"].to<JsonObject>();
   perDigit["enabled"] = config.display.perDigitEnabled;
-  JsonArray values = perDigit.createNestedArray("values");
+  JsonArray values = perDigit["values"].to<JsonArray>();
   for (uint8_t i = 0; i < DIGIT_COUNT; ++i) {
     values.add(colorToHex(config.display.perDigitColor[i]));
   }
-  JsonObject quiet = root.createNestedObject("quiet_hours");
+  JsonObject quiet = root["quiet_hours"].to<JsonObject>();
   quiet["enabled"] = config.display.quietHours.enabled;
   quiet["start_hour"] = config.display.quietHours.startHour;
   quiet["start_minute"] = config.display.quietHours.startMinute;
@@ -830,7 +830,7 @@ void handleGetDisplay() {
 }
 
 void handlePostDisplay() {
-  StaticJsonDocument<JSON_CAPACITY / 2> doc;
+  JsonDocument doc;
   DeserializationError err = deserializeJson(doc, getRequestBody());
   if (err) {
     sendJsonError("Invalid JSON payload");
@@ -901,7 +901,7 @@ void handlePostDisplay() {
 }
 
 void handleGetDots() {
-  StaticJsonDocument<512> doc;
+  JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
   root["enabled"] = config.dots.enabled;
   root["left_color"] = colorToHex(config.dots.leftColor);
@@ -912,7 +912,7 @@ void handleGetDots() {
 }
 
 void handlePostDots() {
-  StaticJsonDocument<512> doc;
+  JsonDocument doc;
   DeserializationError err = deserializeJson(doc, getRequestBody());
   if (err) {
     sendJsonError("Invalid JSON payload");
@@ -941,7 +941,7 @@ void handlePostDots() {
 }
 
 void handleGetAlarm() {
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
   root["enabled"] = config.alarm.enabled;
   root["hour"] = config.alarm.hour;
@@ -955,7 +955,7 @@ void handleGetAlarm() {
 }
 
 void handlePostAlarm() {
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   DeserializationError err = deserializeJson(doc, getRequestBody());
   if (err) {
     sendJsonError("Invalid JSON payload");
@@ -988,7 +988,7 @@ void handleWebUi() {
 }
 
 void handleInfo() {
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   doc["project"] = "ESP8266 Clock";
   doc["status"] = "ok";
   doc["endpoints"] = F("/api/power, /api/time, /api/display, /api/dots, /api/alarm, /api/info");
