@@ -28,7 +28,7 @@ constexpr uint8_t NTP_MAX_ATTEMPTS = 40;
 constexpr uint16_t NTP_RETRY_DELAY_MS = 250;
 constexpr uint32_t NTP_SYNC_INTERVAL_MS = 24UL * 60UL * 60UL * 1000UL;
 constexpr uint32_t NTP_RETRY_INTERVAL_MS = 10UL * 60UL * 1000UL;
-constexpr uint32_t ALARM_DURATION_MS = 5UL * 60UL * 1000UL;
+constexpr uint32_t DEFAULT_ALARM_DURATION_MS = 5UL * 60UL * 1000UL;
 
 
 // Segment encoding order: A, B, C, D, E, F, G (bit 0 = segment A)
@@ -110,6 +110,7 @@ struct AlarmSettings {
   uint8_t lastTriggerHour{255};
   uint8_t lastTriggerMinute{255};
   uint8_t daysMask{0x7F};  // bits 0-6 represent Sunday-Saturday
+  uint32_t durationMs{DEFAULT_ALARM_DURATION_MS};
 };
 
 struct NetworkSettings {
@@ -263,11 +264,6 @@ bool saveConfig() {
   power["mode"] = config.power.mode;
   power["exit_special_mode"] = config.power.exitSpecialMode;
 
-  JsonObject time = doc["time"].to<JsonObject>();
-  time["hour"] = config.time.hour;
-  time["minute"] = config.time.minute;
-  time["second"] = config.time.second;
-
   JsonObject display = doc["display"].to<JsonObject>();
   display["brightness"] = config.display.brightness;
   display["general_color"] = colorToHex(config.display.generalColor);
@@ -297,6 +293,7 @@ bool saveConfig() {
   alarm["hour"] = config.alarm.hour;
   alarm["minute"] = config.alarm.minute;
   alarm["days_mask"] = config.alarm.daysMask;
+  alarm["duration_ms"] = config.alarm.durationMs;
 
   JsonObject network = doc["network"].to<JsonObject>();
   network["ntp_server"] = config.network.ntpServer;
@@ -342,13 +339,6 @@ bool loadConfig() {
     config.power.startupMode = sanitizeMode(power["startup_mode"].as<String>());
     config.power.mode = sanitizeMode(power["mode"].as<String>());
     config.power.exitSpecialMode = false;
-  }
-
-  JsonObject time = doc["time"].as<JsonObject>();
-  if (!time.isNull()) {
-    config.time.hour = constrain(time["hour"].as<int>(), 0, 23);
-    config.time.minute = constrain(time["minute"].as<int>(), 0, 59);
-    config.time.second = constrain(time["second"].as<int>(), 0, 59);
   }
 
   JsonObject display = doc["display"].as<JsonObject>();
@@ -398,6 +388,10 @@ bool loadConfig() {
     config.alarm.minute = constrain(alarm["minute"].as<int>(), 0, 59);
     if (!alarm["days_mask"].isNull()) {
       config.alarm.daysMask = alarm["days_mask"].as<uint8_t>();
+    }
+    if (!alarm["duration_ms"].isNull()) {
+      uint32_t duration = alarm["duration_ms"].as<uint32_t>();
+      config.alarm.durationMs = constrain(duration, 1000UL, 30UL * 60UL * 1000UL);
     }
   }
 
@@ -529,7 +523,7 @@ void stopAlarm() {
 
 void updateAlarmState(const TimeSettings &time) {
   if (config.alarm.active) {
-    if (millis() - config.alarm.startMs >= ALARM_DURATION_MS) {
+    if (millis() - config.alarm.startMs >= config.alarm.durationMs) {
       stopAlarm();
     }
     return;
@@ -750,9 +744,6 @@ void handlePostPower() {
 void handleGetTime() {
   JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
-  root["hour"] = config.time.hour;
-  root["minute"] = config.time.minute;
-  root["second"] = config.time.second;
   root["ntp_server"] = config.network.ntpServer;
   root["utc_offset_minutes"] = config.network.utcOffsetMinutes;
   TimeSettings now = computeCurrentTime();
@@ -776,15 +767,6 @@ void handlePostTime() {
 
   bool ntpServerUpdated = false;
 
-  if (!doc["hour"].isNull()) {
-    config.time.hour = constrain(doc["hour"].as<int>(), 0, 23);
-  }
-  if (!doc["minute"].isNull()) {
-    config.time.minute = constrain(doc["minute"].as<int>(), 0, 59);
-  }
-  if (!doc["second"].isNull()) {
-    config.time.second = constrain(doc["second"].as<int>(), 0, 59);
-  }
   if (!doc["ntp_server"].isNull()) {
     String ntp = doc["ntp_server"].as<String>();
     if (ntp.length() > 0) {
@@ -940,6 +922,21 @@ void handlePostDots() {
   handleGetDots();
 }
 
+void handleGetConfigFile() {
+  if (!LittleFS.begin()) {
+    sendJsonError("LittleFS unavailable", 500);
+    return;
+  }
+  File file = LittleFS.open(CONFIG_PATH, "r");
+  if (!file) {
+    sendJsonError("Config not found", 404);
+    return;
+  }
+  attachCorsHeaders();
+  server.streamFile(file, "application/json");
+  file.close();
+}
+
 void handleGetAlarm() {
   JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
@@ -947,10 +944,12 @@ void handleGetAlarm() {
   root["hour"] = config.alarm.hour;
   root["minute"] = config.alarm.minute;
   root["days_mask"] = config.alarm.daysMask;
+  root["duration_ms"] = config.alarm.durationMs;
   root["active"] = config.alarm.active;
-  root["remaining_ms"] = config.alarm.active
-                             ? max(0L, static_cast<long>(ALARM_DURATION_MS - (millis() - config.alarm.startMs)))
+  const long remaining = config.alarm.active
+                             ? static_cast<long>(config.alarm.durationMs - (millis() - config.alarm.startMs))
                              : 0;
+  root["remaining_ms"] = remaining > 0 ? remaining : 0;
   sendJson(doc);
 }
 
@@ -974,6 +973,10 @@ void handlePostAlarm() {
   if (!doc["days_mask"].isNull()) {
     config.alarm.daysMask = doc["days_mask"].as<uint8_t>();
   }
+  if (!doc["duration_ms"].isNull()) {
+    uint32_t duration = doc["duration_ms"].as<uint32_t>();
+    config.alarm.durationMs = constrain(duration, 1000UL, 30UL * 60UL * 1000UL);
+  }
   bool requestStop = doc["stop"].as<bool>();
   if (requestStop || !config.alarm.enabled) {
     stopAlarm();
@@ -991,7 +994,7 @@ void handleInfo() {
   JsonDocument doc;
   doc["project"] = "ESP8266 Clock";
   doc["status"] = "ok";
-  doc["endpoints"] = F("/api/power, /api/time, /api/display, /api/dots, /api/alarm, /api/info");
+  doc["endpoints"] = F("/config.json, /api/power, /api/time, /api/display, /api/dots, /api/alarm, /api/info");
   sendJson(doc);
 }
 
@@ -1024,6 +1027,7 @@ void setupWebServer() {
   server.on("/api/alarm", HTTP_OPTIONS, handleCorsPreflight);
 
   server.on("/api/info", HTTP_GET, handleInfo);
+  server.on("/config.json", HTTP_GET, handleGetConfigFile);
 
   server.onNotFound(handleNotFound);
   server.begin();

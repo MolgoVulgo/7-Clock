@@ -15,7 +15,7 @@ Projet PlatformIO pour une horloge 4 digits (Wemos D1 mini / ESP-12E) pilotant 3
 4. **Modes** : `clock` est pleinement implémenté. Les modes `timer`, `weather`, `custom` et `alarm` réutilisent actuellement l'affichage principal (avec clignotement des points pour `timer`/`alarm`) et servent de base pour des comportements plus évolués. Le mode `off` coupe simplement toutes les LED.
 5. **Synchronisation NTP** : à chaque démarrage (et lors des modifications via l'API), l'horloge synchronise l'heure sur le serveur configuré (`pool.ntp.org` par défaut), applique un décalage UTC paramétrable et relance automatiquement une resynchronisation toutes les 24 h pour limiter la dérive.
 6. **Plage nocturne** : une fenêtre horaire optionnelle peut réduire automatiquement la luminosité (jusqu'à éteindre totalement) pour préserver l'obscurité.
-7. **Alarme quotidienne** : une alarme paramétrable via l'interface web fait clignoter l'heure en blanc à luminosité maximale pendant 5 minutes à l'heure choisie.
+7. **Alarme quotidienne** : une alarme paramétrable via l'interface web fait clignoter l'heure en blanc à luminosité maximale pendant une durée réglable (5 minutes par défaut) à l'heure choisie.
 8. **Mise à jour OTA** : ArduinoOTA est activé (nom d'hôte `esp8266-clock`), permettant de flasher le firmware via Wi-Fi.
 
 ## Configuration (`config.json`)
@@ -28,7 +28,6 @@ Structure principale :
     "startup_mode": "clock",
     "exit_special_mode": false
   },
-  "time": { "hour": 12, "minute": 0, "second": 0 },
   "display": {
     "brightness": 80,
     "general_color": "#FF5500",
@@ -56,7 +55,8 @@ Structure principale :
     "enabled": false,
     "hour": 7,
     "minute": 0,
-    "days_mask": 127
+    "days_mask": 127,
+    "duration_ms": 300000
   },
   "network": { "ntp_server": "pool.ntp.org", "utc_offset_minutes": 0 }
 }
@@ -65,7 +65,7 @@ Structure principale :
 - `per_digit_color.values` contient 4 entrées (digits 0→3). Activer `enabled` applique ces couleurs à la place de `general_color`.
 - `display.quiet_hours` réduit automatiquement la luminosité (jusqu'à 0) entre `start_*` et `end_*`. Lorsque la plage chevauche minuit, la réduction s'applique sur deux jours.
 - `dots.force_override` applique temporairement `forced_color` sur les deux points (sinon chaque point utilise sa couleur dédiée).
-- `alarm` configure l'heure de déclenchement et les jours de répétition (`days_mask` utilise un bitmask 7 bits, bit 0=dimanche ... bit 6=samedi).
+- `alarm` configure l'heure de déclenchement, les jours de répétition (`days_mask` utilise un bitmask 7 bits, bit 0=dimanche ... bit 6=samedi) et la durée (`duration_ms`, 1 s → 30 min) pendant laquelle l'affichage clignote en blanc.
 - `network.ntp_server` définit le serveur NTP utilisé à chaque synchronisation (modifiable via l'API `/api/time` ou en éditant le fichier).
 - `network.utc_offset_minutes` applique un décalage horaire (en minutes, plage -720 ↔ 840) par rapport à UTC lors de la synchronisation.
 
@@ -88,9 +88,9 @@ curl -X POST http://clock.local/api/power \
 ```
 
 ### `/api/time`
-- Détermine l'heure de départ utilisée par `ModeClock` lorsque aucun autre minuteur n'est actif.
-- Champs : `hour` (0-23), `minute` (0-59), `second` (0-59), `ntp_server` (chaîne), `utc_offset_minutes` (entier entre -720 et 840). Envoyer un `ntp_server` ou un `utc_offset_minutes` déclenche une resynchronisation immédiate tant que le WiFi est connecté.
-- La réponse retourne également un objet `current` avec l'heure/minute/seconde courantes (ainsi qu'un format texte) utilisée par l'interface web pour afficher l'heure en direct.
+- Configure le serveur NTP utilisé ainsi que le décalage UTC appliqué localement.
+- Champs acceptés : `ntp_server` (chaîne) et `utc_offset_minutes` (entier -720 ↔ 840). Toute modification déclenche immédiatement une resynchronisation (si le WiFi est disponible).
+- La réponse contient automatiquement un objet `current` (`hour`, `minute`, `second`, `formatted`) représentant l'heure actuellement affichée, utilisé par l'interface web pour le bandeau « live clock ».
 
 ### `/api/display`
 - `brightness` (1-255).
@@ -104,11 +104,12 @@ curl -X POST http://clock.local/api/power \
 - `force_override`, `forced_color`: force simultanément les deux points avec une même couleur.
 
 ### `/api/alarm`
-- `GET`: renvoie `enabled`, `hour`, `minute`, `days_mask`, `active`, `remaining_ms`.
-- `POST`: accepte `enabled` (bool), `hour` (0-23), `minute` (0-59), `days_mask` (0-127) et/ou `stop` (`true` arrête immédiatement l'alarme en cours).
+- `GET`: renvoie `enabled`, `hour`, `minute`, `days_mask`, `duration_ms`, `active` et `remaining_ms`.
+- `POST`: accepte `enabled` (bool), `hour` (0-23), `minute` (0-59), `days_mask` (0-127), `duration_ms` (1000 ↔ 1 800 000 ms) et/ou `stop` (`true` arrête immédiatement l'alarme en cours).
 
 ### Interface `/`
-- Accéder à `http://<IP>/` ouvre une interface web légère (HTML/JS) qui consomme les endpoints REST pour éditer `config.json` (alimentation, heure/NTP, affichage, points, offset UTC). Aucune dépendance externe : la page est embarquée dans `include/index.h`, affiche en direct l'heure de l'horloge et est servie depuis la flash (PROGMEM).
+- Accéder à `http://<IP>/` ouvre un tableau de bord moderne (héros avec horloge temps réel) découpé en cartes : « Heure & Réseau » (serveur NTP + offset), « Affichage et couleurs » (luminosité, couleur générale, quatre digits sur une même ligne avec sélecteurs + pastilles colorées, plage nocturne), « Points centraux » (couleurs gauche/droite + couleur forcée unique) et « Alarme » (activation, heure/minute, durée, jours actifs, bouton d'arrêt). Un bouton « Rafraîchir » recharge instantanément la configuration courante.
+- Aucun asset externe : l'HTML/JS/CSS est embarqué dans `include/index.h` (PROGMEM) et l'interface dialogue uniquement avec les endpoints REST listés ci-dessus.
 
 ### `/api/info`
 - Retourne un petit JSON de statut (nom du projet et liste des endpoints exposés).

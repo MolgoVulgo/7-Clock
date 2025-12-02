@@ -5,11 +5,6 @@
     "startup_mode": "clock",
     "exit_special_mode": false
   },
-  "time": {
-    "hour": 12,
-    "minute": 0,
-    "second": 0
-  },
   "display": {
     "brightness": 80,
     "general_color": "#FF5500",
@@ -42,7 +37,8 @@
     "enabled": false,
     "hour": 7,
     "minute": 0,
-    "days_mask": 127
+    "days_mask": 127,
+    "duration_ms": 300000
   },
   "network": {
     "ntp_server": "pool.ntp.org",
