@@ -214,6 +214,20 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
           </div>
         </form>
       </section>
+
+      <section class="card">
+        <h2>Intégration Sinric.pro</h2>
+        <p style="color:#94a3b8;font-size:0.9rem;">Renseignez vos identifiants Sinric. Les valeurs existantes ne sont jamais affichées.</p>
+        <form id="sinricForm">
+          <label class="inline"><input type="checkbox" id="sinric_enabled"> Activer le contrôle Sinric</label>
+          <label>App Key<input type="text" id="sinric_app_key" placeholder="ex: de0b-...." autocomplete="off" autocapitalize="none"></label>
+          <label>App Secret<input type="password" id="sinric_app_secret" placeholder="••••••••" autocomplete="off"></label>
+          <label>Device ID<input type="text" id="sinric_device_id" placeholder="ex: 5dc1..." autocomplete="off" autocapitalize="none"></label>
+          <p>Statut : <span id="sinric_status" style="font-weight:600;">-</span></p>
+          <p style="color:#94a3b8;font-size:0.85rem;">Laissez un champ vide pour conserver la valeur précédente.</p>
+          <button type="submit">Enregistrer</button>
+        </form>
+      </section>
     </div>
 
     <button class="secondary" id="refreshBtn" style="align-self:flex-end">Rafraîchir les valeurs</button>
@@ -376,9 +390,19 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
       });
     }
 
+    async function loadSinric() {
+      const data = await fetchJson("/api/sinric");
+      $("sinric_enabled").checked = !!data.enabled;
+      $("sinric_status").textContent = data.active ? "Connecté" : (data.configured ? "Identifiants enregistrés" : "Non configuré");
+      ["sinric_app_key", "sinric_app_secret", "sinric_device_id"].forEach((id) => {
+        const input = $(id);
+        if (input) input.value = "";
+      });
+    }
+
     async function loadAll() {
       try {
-        await Promise.all([loadTime(), loadDisplay(), loadDots(), loadAlarm()]);
+        await Promise.all([loadTime(), loadDisplay(), loadDots(), loadAlarm(), loadSinric()]);
         showToast("Configuration chargée");
       } catch (err) {
         showToast("Erreur de chargement : " + err.message, true);
@@ -468,6 +492,29 @@ static const char WEB_UI_HTML[] PROGMEM = R"rawliteral(
         await postJson("/api/alarm", { stop: true });
         showToast("Alarme arrêtée");
         loadAlarm();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+
+    $("sinricForm").addEventListener("submit", async (evt) => {
+      evt.preventDefault();
+      try {
+        const payload = { enabled: $("sinric_enabled").checked };
+        const map = [
+          { id: "sinric_app_key", field: "app_key" },
+          { id: "sinric_app_secret", field: "app_secret" },
+          { id: "sinric_device_id", field: "device_id" }
+        ];
+        map.forEach(({ id, field }) => {
+          const value = $(id).value.trim();
+          if (value.length > 0) {
+            payload[field] = value;
+          }
+        });
+        await postJson("/api/sinric", payload);
+        showToast("Identifiants Sinric mis à jour");
+        loadSinric();
       } catch (err) {
         showToast(err.message, true);
       }

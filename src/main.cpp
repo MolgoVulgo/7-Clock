@@ -8,6 +8,8 @@
 #include <WiFiManager.h>
 #include <ArduinoOTA.h>
 #include <time.h>
+#include <SinricPro.h>
+#include <SinricProLight.h>
 #include "index.h"
 
 // uncomment the line below to enable logging into serial
@@ -118,6 +120,13 @@ struct NetworkSettings {
   int16_t utcOffsetMinutes{0};
 };
 
+struct SinricSettings {
+  bool enabled{false};
+  String appKey;
+  String appSecret;
+  String deviceId;
+};
+
 struct ClockConfig {
   PowerSettings power;
   TimeSettings time;
@@ -125,6 +134,7 @@ struct ClockConfig {
   DotsSettings dots;
   AlarmSettings alarm;
   NetworkSettings network;
+  SinricSettings sinric;
 };
 
 enum class OperatingMode { Clock, Timer, Weather, Custom, Alarm, Off };
@@ -140,8 +150,23 @@ unsigned long lastNtpAttemptMs = 0;
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 ESP8266WebServer server(80);
 WiFiManager wifiManager;
+SinricProLight *sinricLightDevice = nullptr;
+bool sinricInitialized = false;
+bool sinricCommandInProgress = false;
 
 bool syncTimeFromNtp();
+void setupSinric();
+void processSinric();
+void notifySinricState();
+bool onSinricPowerState(const String &deviceId, bool &state);
+bool onSinricBrightness(const String &deviceId, int &brightness);
+bool onSinricColor(const String &deviceId, byte &r, byte &g, byte &b);
+bool hasValidSinricCredentials();
+uint8_t sinricPercentToBrightness(int percent);
+int brightnessToSinricPercent(uint8_t brightness);
+bool hasStoredSinricCredentials();
+void handleGetSinric();
+void handlePostSinric();
 
 Color hexToColor(const String &value, const Color &fallback) {
   if (value.length() != 7 || value.charAt(0) != '#') {
@@ -247,6 +272,7 @@ void loadDefaultConfig() {
   config.dots = DotsSettings();
   config.alarm = AlarmSettings();
   config.network = NetworkSettings();
+  config.sinric = SinricSettings();
 }
 
 bool saveConfig() {
@@ -298,6 +324,12 @@ bool saveConfig() {
   JsonObject network = doc["network"].to<JsonObject>();
   network["ntp_server"] = config.network.ntpServer;
   network["utc_offset_minutes"] = config.network.utcOffsetMinutes;
+
+  JsonObject sinric = doc["sinric"].to<JsonObject>();
+  sinric["enabled"] = config.sinric.enabled;
+  sinric["app_key"] = config.sinric.appKey;
+  sinric["app_secret"] = config.sinric.appSecret;
+  sinric["device_id"] = config.sinric.deviceId;
 
   bool ok = serializeJsonPretty(doc, file) > 0;
   file.close();
@@ -404,6 +436,22 @@ bool loadConfig() {
     if (!network["utc_offset_minutes"].isNull()) {
       config.network.utcOffsetMinutes =
           constrain(network["utc_offset_minutes"].as<int>(), -720, 840);  // -12h to +14h
+    }
+  }
+
+  JsonObject sinric = doc["sinric"].as<JsonObject>();
+  if (!sinric.isNull()) {
+    if (!sinric["enabled"].isNull()) {
+      config.sinric.enabled = sinric["enabled"].as<bool>();
+    }
+    if (!sinric["app_key"].isNull()) {
+      config.sinric.appKey = sinric["app_key"].as<String>();
+    }
+    if (!sinric["app_secret"].isNull()) {
+      config.sinric.appSecret = sinric["app_secret"].as<String>();
+    }
+    if (!sinric["device_id"].isNull()) {
+      config.sinric.deviceId = sinric["device_id"].as<String>();
     }
   }
 
@@ -738,6 +786,7 @@ void handlePostPower() {
   }
   saveConfig();
   updateDisplay();
+  notifySinricState();
   handleGetPower();
 }
 
@@ -879,6 +928,7 @@ void handlePostDisplay() {
   applyDisplaySettings();
   saveConfig();
   updateDisplay();
+  notifySinricState();
   handleGetDisplay();
 }
 
@@ -994,7 +1044,7 @@ void handleInfo() {
   JsonDocument doc;
   doc["project"] = "ESP8266 Clock";
   doc["status"] = "ok";
-  doc["endpoints"] = F("/config.json, /api/power, /api/time, /api/display, /api/dots, /api/alarm, /api/info");
+  doc["endpoints"] = F("/config.json, /api/power, /api/time, /api/display, /api/dots, /api/alarm, /api/sinric, /api/info");
   sendJson(doc);
 }
 
@@ -1026,11 +1076,156 @@ void setupWebServer() {
   server.on("/api/alarm", HTTP_POST, handlePostAlarm);
   server.on("/api/alarm", HTTP_OPTIONS, handleCorsPreflight);
 
+  server.on("/api/sinric", HTTP_GET, handleGetSinric);
+  server.on("/api/sinric", HTTP_POST, handlePostSinric);
+  server.on("/api/sinric", HTTP_OPTIONS, handleCorsPreflight);
+
   server.on("/api/info", HTTP_GET, handleInfo);
   server.on("/config.json", HTTP_GET, handleGetConfigFile);
 
   server.onNotFound(handleNotFound);
   server.begin();
+}
+
+uint8_t sinricPercentToBrightness(int percent) {
+  percent = constrain(percent, 0, 100);
+  int value = (percent * 255) / 100;
+  value = constrain(value, 1, 255);
+  return static_cast<uint8_t>(value);
+}
+
+int brightnessToSinricPercent(uint8_t brightness) {
+  brightness = constrain(brightness, static_cast<uint8_t>(1), static_cast<uint8_t>(255));
+  return (static_cast<uint16_t>(brightness) * 100) / 255;
+}
+
+bool hasValidSinricCredentials() {
+  return config.sinric.enabled && config.sinric.appKey.length() > 0 && config.sinric.appSecret.length() > 0 &&
+         config.sinric.deviceId.length() > 0;
+}
+
+bool hasStoredSinricCredentials() {
+  return config.sinric.appKey.length() > 0 && config.sinric.appSecret.length() > 0 && config.sinric.deviceId.length() > 0;
+}
+
+void handleGetSinric() {
+  JsonDocument doc;
+  JsonObject root = doc.to<JsonObject>();
+  root["enabled"] = config.sinric.enabled;
+  root["configured"] = hasStoredSinricCredentials();
+  root["active"] = sinricInitialized;
+  sendJson(doc);
+}
+
+void handlePostSinric() {
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, getRequestBody());
+  if (err) {
+    sendJsonError("Invalid JSON payload");
+    return;
+  }
+  if (!doc["enabled"].isNull()) {
+    config.sinric.enabled = doc["enabled"].as<bool>();
+  }
+  auto updateSecret = [](String &target, const JsonVariantConst &value) {
+    if (!value.isNull()) {
+      String incoming = value.as<String>();
+      incoming.trim();
+      if (incoming.length() > 0) {
+        target = incoming;
+      }
+    }
+  };
+  updateSecret(config.sinric.appKey, doc["app_key"]);
+  updateSecret(config.sinric.appSecret, doc["app_secret"]);
+  updateSecret(config.sinric.deviceId, doc["device_id"]);
+
+  saveConfig();
+  setupSinric();
+  handleGetSinric();
+}
+
+void notifySinricState() {
+  if (!sinricInitialized || sinricCommandInProgress || sinricLightDevice == nullptr) {
+    return;
+  }
+  sinricLightDevice->sendPowerStateEvent(config.power.powerOn);
+  sinricLightDevice->sendBrightnessEvent(brightnessToSinricPercent(config.display.brightness));
+  sinricLightDevice->sendColorEvent(config.display.generalColor.r, config.display.generalColor.g,
+                                    config.display.generalColor.b);
+}
+
+bool onSinricPowerState(const String &deviceId, bool &state) {
+  if (!deviceId.equals(config.sinric.deviceId)) {
+    return false;
+  }
+  sinricCommandInProgress = true;
+  config.power.powerOn = state;
+  saveConfig();
+  updateDisplay();
+  sinricCommandInProgress = false;
+  return true;
+}
+
+bool onSinricBrightness(const String &deviceId, int &brightness) {
+  if (!deviceId.equals(config.sinric.deviceId)) {
+    return false;
+  }
+  sinricCommandInProgress = true;
+  config.display.brightness = sinricPercentToBrightness(brightness);
+  applyDisplaySettings();
+  saveConfig();
+  updateDisplay();
+  sinricCommandInProgress = false;
+  return true;
+}
+
+bool onSinricColor(const String &deviceId, byte &r, byte &g, byte &b) {
+  if (!deviceId.equals(config.sinric.deviceId)) {
+    return false;
+  }
+  sinricCommandInProgress = true;
+  config.display.generalColor = Color(r, g, b);
+  if (!config.display.perDigitEnabled) {
+    for (uint8_t i = 0; i < DIGIT_COUNT; ++i) {
+      config.display.perDigitColor[i] = config.display.generalColor;
+    }
+  }
+  saveConfig();
+  updateDisplay();
+  sinricCommandInProgress = false;
+  return true;
+}
+
+void setupSinric() {
+  sinricLightDevice = nullptr;
+  sinricInitialized = false;
+  if (!hasValidSinricCredentials()) {
+#ifdef DEBUG_SERIAL
+    if (config.sinric.enabled) {
+      Serial.println(F("[SinricPro] Identifiants manquants"));
+    } else {
+      Serial.println(F("[SinricPro] Désactivé"));
+    }
+#endif
+    return;
+  }
+  SinricProLight &device = SinricPro[config.sinric.deviceId.c_str()];
+  device.onPowerState(onSinricPowerState);
+  device.onBrightness(onSinricBrightness);
+  device.onColor(onSinricColor);
+  SinricPro.begin(config.sinric.appKey.c_str(), config.sinric.appSecret.c_str());
+  SinricPro.restoreDeviceStates(false);
+  sinricLightDevice = &device;
+  sinricInitialized = true;
+  notifySinricState();
+}
+
+void processSinric() {
+  if (!sinricInitialized) {
+    return;
+  }
+  SinricPro.handle();
 }
 
 bool syncTimeFromNtp() {
@@ -1164,6 +1359,7 @@ void setup() {
 
   ensureWiFi();
   setupOta();
+  setupSinric();
   if (syncTimeFromNtp()) {
     saveConfig();
   }
@@ -1177,6 +1373,7 @@ void setup() {
 
 void loop() {
   ArduinoOTA.handle();
+  processSinric();
   unsigned long nowMs = millis();
   if (WiFi.status() == WL_CONNECTED) {
     bool needInitialSync = (lastNtpSyncMs == 0);

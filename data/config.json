@@ -43,5 +43,11 @@
   "network": {
     "ntp_server": "pool.ntp.org",
     "utc_offset_minutes": 0
+  },
+  "sinric": {
+    "enabled": false,
+    "app_key": "",
+    "app_secret": "",
+    "device_id": ""
   }
 }
