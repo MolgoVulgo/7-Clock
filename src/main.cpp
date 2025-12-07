@@ -164,6 +164,9 @@ bool onSinricColor(const String &deviceId, byte &r, byte &g, byte &b);
 bool hasValidSinricCredentials();
 uint8_t sinricPercentToBrightness(int percent);
 int brightnessToSinricPercent(uint8_t brightness);
+bool hasStoredSinricCredentials();
+void handleGetSinric();
+void handlePostSinric();
 
 Color hexToColor(const String &value, const Color &fallback) {
   if (value.length() != 7 || value.charAt(0) != '#') {
@@ -1041,7 +1044,7 @@ void handleInfo() {
   JsonDocument doc;
   doc["project"] = "ESP8266 Clock";
   doc["status"] = "ok";
-  doc["endpoints"] = F("/config.json, /api/power, /api/time, /api/display, /api/dots, /api/alarm, /api/info");
+  doc["endpoints"] = F("/config.json, /api/power, /api/time, /api/display, /api/dots, /api/alarm, /api/sinric, /api/info");
   sendJson(doc);
 }
 
@@ -1073,6 +1076,10 @@ void setupWebServer() {
   server.on("/api/alarm", HTTP_POST, handlePostAlarm);
   server.on("/api/alarm", HTTP_OPTIONS, handleCorsPreflight);
 
+  server.on("/api/sinric", HTTP_GET, handleGetSinric);
+  server.on("/api/sinric", HTTP_POST, handlePostSinric);
+  server.on("/api/sinric", HTTP_OPTIONS, handleCorsPreflight);
+
   server.on("/api/info", HTTP_GET, handleInfo);
   server.on("/config.json", HTTP_GET, handleGetConfigFile);
 
@@ -1095,6 +1102,47 @@ int brightnessToSinricPercent(uint8_t brightness) {
 bool hasValidSinricCredentials() {
   return config.sinric.enabled && config.sinric.appKey.length() > 0 && config.sinric.appSecret.length() > 0 &&
          config.sinric.deviceId.length() > 0;
+}
+
+bool hasStoredSinricCredentials() {
+  return config.sinric.appKey.length() > 0 && config.sinric.appSecret.length() > 0 && config.sinric.deviceId.length() > 0;
+}
+
+void handleGetSinric() {
+  JsonDocument doc;
+  JsonObject root = doc.to<JsonObject>();
+  root["enabled"] = config.sinric.enabled;
+  root["configured"] = hasStoredSinricCredentials();
+  root["active"] = sinricInitialized;
+  sendJson(doc);
+}
+
+void handlePostSinric() {
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, getRequestBody());
+  if (err) {
+    sendJsonError("Invalid JSON payload");
+    return;
+  }
+  if (!doc["enabled"].isNull()) {
+    config.sinric.enabled = doc["enabled"].as<bool>();
+  }
+  auto updateSecret = [](String &target, const JsonVariantConst &value) {
+    if (!value.isNull()) {
+      String incoming = value.as<String>();
+      incoming.trim();
+      if (incoming.length() > 0) {
+        target = incoming;
+      }
+    }
+  };
+  updateSecret(config.sinric.appKey, doc["app_key"]);
+  updateSecret(config.sinric.appSecret, doc["app_secret"]);
+  updateSecret(config.sinric.deviceId, doc["device_id"]);
+
+  saveConfig();
+  setupSinric();
+  handleGetSinric();
 }
 
 void notifySinricState() {
